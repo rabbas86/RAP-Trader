@@ -1,0 +1,8 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      TRADING_MODE: paper
+      LIVE_TRADING_ENABLED: "false"
