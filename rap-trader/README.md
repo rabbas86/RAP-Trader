@@ -20,7 +20,7 @@ Open `http://localhost:8000/health`. Copy `.env.example` to `.env` to customize 
 
 ## Market data
 
-The read-only endpoints are `GET /market-data/health`, `GET /market-data/timeframes`, and `GET /market-data/bars`. Bars accept `symbol`, `timeframe`, `start`, `end`, and optional `limit` query parameters. Supported mock symbols are AAPL, MSFT, GOOG, TSLA, and SPY; supported timeframes are 1m, 5m, 15m, 1h, 1d, and 1w. All returned timestamps are UTC.
+The read-only endpoints are `GET /market-data/health`, `GET /market-data/timeframes`, and `GET /market-data/bars`. Bars accept `symbol` (required), `timeframe` (required; one of `1m`, `5m`, `15m`, `1h`, `1d`, `1w`), `start` (required, ISO 8601), `end` (required, ISO 8601), and optional `limit` (positive integer, max 100000), `adjustment` (`raw`, `split_adjusted`, `total_return_adjusted`; default `raw`), and `session` (`regular`, `extended`, `all`; default `regular`) query parameters. Supported mock symbols include AAPL, MSFT, GOOG, TSLA, SPY, and class-share tickers like BRK.B and BF.B. All returned timestamps are UTC. The default provider is deterministic and makes no network calls; `yfinance` is an opt-in adapter that requires no API key. No endpoint submits orders or connects to brokerage.
 
 ## Docker
 

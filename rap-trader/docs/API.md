@@ -10,7 +10,7 @@ Returns application name, environment, trading mode, live-trading flag, and vers
 
 ## `GET /market-data/health`
 
-Returns provider health as `{"healthy": true}`.
+Returns a `ProviderHealth` object: `provider` (str), `configured` (bool), `reachable` (bool or null), `checked_at` (UTC datetime), `status` (str), and `detail` (str).
 
 ## `GET /market-data/timeframes`
 
@@ -18,6 +18,6 @@ Returns supported timeframes as `{"timeframes": ["1m", "5m", "15m", "1h", "1d", 
 
 ## `GET /market-data/bars`
 
-Query parameters: `symbol` (required), `timeframe` (required; one of the supported timeframes), `start` (required, ISO 8601 datetime), `end` (required, ISO 8601 datetime), `limit` (optional, positive integer, max 10000).
+Query parameters: `symbol` (required string), `timeframe` (required), `start` (required, ISO 8601 datetime), `end` (required, ISO 8601 datetime), `limit` (optional, positive integer, max 100000), `adjustment` (optional, `raw`/`split_adjusted`/`total_return_adjusted`; default `raw`), `session` (optional, `regular`/`extended`/`all`; default `regular`).
 
-Returns normalized historical bars for the requested symbol/timeframe range. All timestamps are UTC. The default provider is deterministic and makes no network calls; `yfinance` is an opt-in adapter available at the service boundary. No endpoint submits orders or connects to brokerage.
+Returns a normalized `HistoricalBarsResult` as JSON. All timestamps are UTC. Errors return a structured `{"code": ..., "safe_message": ...}` body. The default provider is deterministic and makes no network calls; `yfinance` is an opt-in adapter available at the service boundary and requires no API key. No endpoint submits orders or connects to brokerage.

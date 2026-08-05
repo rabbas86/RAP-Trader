@@ -4,7 +4,16 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from app.domain.models.market_data import HistoricalBarsRequest, HistoricalBarsResult, MarketDataError, Symbol, Timeframe
+from app.domain.models.market_data import (
+    AdjustmentPolicy,
+    HistoricalBarsRequest,
+    HistoricalBarsResult,
+    MarketDataError,
+    ProviderHealth,
+    SessionPolicy,
+    Symbol,
+    Timeframe,
+)
 from app.services.market_data import MarketDataProvider, MockMarketDataProvider
 
 router = APIRouter(prefix="/market-data", tags=["market-data"])
@@ -18,9 +27,9 @@ def get_market_data_provider() -> MarketDataProvider:
 ProviderDependency = Annotated[MarketDataProvider, Depends(get_market_data_provider)]
 
 
-@router.get("/health")
-def health(provider: ProviderDependency) -> dict[str, bool]:
-    return {"healthy": provider.health()}
+@router.get("/health", response_model=ProviderHealth)
+def health(provider: ProviderDependency) -> ProviderHealth:
+    return provider.health()
 
 
 @router.get("/timeframes")
@@ -35,10 +44,19 @@ def bars(
     timeframe: Timeframe,
     start: datetime,
     end: datetime,
-    limit: Annotated[int | None, Query(gt=0, le=10_000)] = None,
+    limit: Annotated[int | None, Query(gt=0, le=100_000)] = None,
+    adjustment: AdjustmentPolicy = "raw",
+    session: SessionPolicy = "regular",
 ) -> HistoricalBarsResult:
     try:
-        request = HistoricalBarsRequest(symbol=Symbol(symbol), timeframe=timeframe, start=start, end=end, limit=limit)
+        request = HistoricalBarsRequest(
+            symbol=Symbol(symbol), timeframe=timeframe, start=start, end=end, limit=limit, adjustment=adjustment, session=session
+        )
         return provider.get_bars(request)
-    except (MarketDataError, ValueError) as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except MarketDataError as exc:
+        raise HTTPException(status_code=400, detail={"code": exc.code.value, "safe_message": exc.safe_message}) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "INVALID_REQUEST", "safe_message": "Invalid market data request"},
+        ) from exc

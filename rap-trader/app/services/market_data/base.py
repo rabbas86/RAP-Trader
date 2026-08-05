@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from app.domain.models.market_data import HistoricalBarsRequest, HistoricalBarsResult
+from app.domain.models.market_data import HistoricalBarsRequest, HistoricalBarsResult, ProviderHealth
 
 
 class MarketDataProvider(ABC):
@@ -17,8 +17,8 @@ class MarketDataProvider(ABC):
         """Fetch normalized bars or raise MarketDataError."""
 
     @abstractmethod
-    def health(self) -> bool:
-        """Report whether the provider is available."""
+    def health(self) -> ProviderHealth:
+        """Return a non-invasive provider health snapshot."""
 
     @abstractmethod
     def supported_timeframes(self) -> list[str]:

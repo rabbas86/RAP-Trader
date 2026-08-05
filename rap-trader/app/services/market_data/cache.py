@@ -1,10 +1,33 @@
+import json
 from abc import ABC, abstractmethod
 from collections import OrderedDict
+from hashlib import sha256
 from threading import RLock
 from time import monotonic
 from typing import TypeVar
 
+from app.domain.models.market_data import AdjustmentPolicy, HistoricalBarsRequest, SessionPolicy
+
 T = TypeVar("T")
+
+
+def cache_key_builder(
+    provider: str,
+    request: HistoricalBarsRequest,
+    adjustment: AdjustmentPolicy,
+    session: SessionPolicy,
+    provider_config: dict[str, object],
+) -> str:
+    """Build a compact deterministic key isolated by provider and data policy."""
+    payload = {
+        "provider": provider,
+        "request": request.model_dump(mode="json", exclude={"adjustment", "session"}),
+        "adjustment": adjustment,
+        "session": session,
+        "provider_config": provider_config,
+    }
+    serialized = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
+    return sha256(serialized.encode("utf-8")).hexdigest()
 
 
 class AbstractCache[T](ABC):

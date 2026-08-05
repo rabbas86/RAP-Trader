@@ -18,7 +18,9 @@ def params(symbol: str = "AAPL") -> dict[str, str]:
 
 
 def test_market_data_health() -> None:
-    assert client.get("/market-data/health").json() == {"healthy": True}
+    payload = client.get("/market-data/health").json()
+    assert payload["provider"] == "mock"
+    assert payload["reachable"] is True
 
 
 def test_market_data_timeframes() -> None:
@@ -40,7 +42,7 @@ def test_market_data_bars_returns_normalized_result() -> None:
 def test_market_data_bars_rejects_unsupported_symbol() -> None:
     response = client.get("/market-data/bars", params=params("NVDA"))
     assert response.status_code == 400
-    assert response.json()["detail"] == "unsupported symbol: NVDA"
+    assert response.json()["detail"] == {"code": "UNSUPPORTED_SYMBOL", "safe_message": "Symbol NVDA is not supported"}
 
 
 def test_market_data_bars_rejects_invalid_range_and_timeframe() -> None:
