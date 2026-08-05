@@ -1,8 +1,8 @@
 # RAP Trader
 
-RAP Trader is a modular foundation for an AI-assisted US-equities trading platform. Phase 1 is deliberately paper-trading only: it provides a FastAPI API, validated settings, structured JSON logging, typed domain schemas, deterministic risk controls, a mock Kronos boundary, a WAIT-only decision engine, and an in-memory paper broker.
+RAP Trader is a modular foundation for an AI-assisted US-equities trading platform. Phase 2 adds validated, read-only historical market data to the deliberately safe Phase 1 foundation. It provides a deterministic mock provider, an isolated free yfinance adapter, bounded TTL caching, a FastAPI API, structured JSON logging, deterministic risk controls, a mock Kronos boundary, a WAIT-only decision engine, and an in-memory paper broker.
 
-It cannot place real trades, has no external AI or market-data calls, and stores paper orders only for the process lifetime.
+It cannot place real trades and stores paper orders and market-data cache entries only for the process lifetime. The default market-data provider is deterministic and makes no network calls; yfinance is opt-in at the service boundary and requires no API key.
 
 ## Install and run locally
 
@@ -17,6 +17,10 @@ uvicorn app.main:app --reload
 ```
 
 Open `http://localhost:8000/health`. Copy `.env.example` to `.env` to customize safe settings.
+
+## Market data
+
+The read-only endpoints are `GET /market-data/health`, `GET /market-data/timeframes`, and `GET /market-data/bars`. Bars accept `symbol`, `timeframe`, `start`, `end`, and optional `limit` query parameters. Supported mock symbols are AAPL, MSFT, GOOG, TSLA, and SPY; supported timeframes are 1m, 5m, 15m, 1h, 1d, and 1w. All returned timestamps are UTC.
 
 ## Docker
 
@@ -45,4 +49,4 @@ mypy app
 
 ## Safety limitations
 
-Phase 1 predictions and decisions are placeholders, not investment advice. Live trading is disabled by default. `ExecutionService` submits an order only when it receives deterministic risk approval; no decision model may override that gate. Phase 1 exposes no order-submission API and includes no real-broker adapter. Paper trading and backtesting are required before any future live-readiness assessment. See `docs/SAFETY.md`.
+Predictions and decisions are placeholders, not investment advice. Live trading is disabled by default. `ExecutionService` submits an order only when it receives deterministic risk approval; no decision model may override that gate. The application exposes no order-submission API and includes no real-broker adapter. Market data can be delayed, incomplete, or adjusted by its public source and must not be treated as an execution quote. See `docs/SAFETY.md`.

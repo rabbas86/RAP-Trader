@@ -4,7 +4,7 @@ from uuid import uuid4
 from fastapi import FastAPI, Request
 
 from app import __version__
-from app.api.routes import health, system
+from app.api.routes import health, market_data, system
 from app.config import get_settings
 from app.logging_config import configure_logging
 
@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title=settings.app_name, version=__version__)
 app.include_router(health.router)
 app.include_router(system.router)
+app.include_router(market_data.router)
 
 
 @app.middleware("http")
