@@ -21,7 +21,17 @@ class PaperBroker(Broker):
     def submit_order(self, order: OrderRequest) -> OrderResult:
         if order.idempotency_key in self.orders:
             raise DuplicateOrderError(f"duplicate idempotency key: {order.idempotency_key}")
-        result = OrderResult(order_id=f"paper-{uuid4()}", status="accepted", broker="in-memory-paper", paper_trade=True, message="Simulated order accepted; no real trade was placed", created_at=datetime.now(UTC))
+        result = OrderResult(
+            order_id=f"paper-{uuid4()}",
+            status="accepted",
+            broker="in-memory-paper",
+            paper_trade=True,
+            message="Simulated order accepted; no real trade was placed",
+            created_at=datetime.now(UTC),
+        )
         self.orders[order.idempotency_key] = result
-        logger.info("paper order accepted", extra={"order_id": result.order_id, "service": "paper_broker", "event": "submit_order", "result": result.status})
+        logger.info(
+            "paper order accepted",
+            extra={"order_id": result.order_id, "service": "paper_broker", "event": "submit_order", "result": result.status},
+        )
         return result

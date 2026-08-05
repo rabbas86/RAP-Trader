@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 from app.config import Settings
 from app.domain.models.risk import RiskAssessment
 
@@ -5,12 +7,21 @@ from app.domain.models.risk import RiskAssessment
 class RiskEngine:
     """Deterministic, non-overridable pre-execution risk gate."""
 
-    SUPPORTED_ACTIONS = {"BUY", "SELL"}
+    SUPPORTED_ACTIONS: ClassVar[frozenset[str]] = frozenset({"BUY", "SELL"})
 
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
 
-    def assess(self, *, action: str, quantity: int, position_percent: float, estimated_trade_loss_percent: float, portfolio_drawdown_percent: float, live_order: bool = False) -> RiskAssessment:
+    def assess(
+        self,
+        *,
+        action: str,
+        quantity: int,
+        position_percent: float,
+        estimated_trade_loss_percent: float,
+        portfolio_drawdown_percent: float,
+        live_order: bool = False,
+    ) -> RiskAssessment:
         reasons: list[str] = []
         if quantity <= 0:
             reasons.append("quantity must be positive")
@@ -25,4 +36,10 @@ class RiskEngine:
         if live_order and not self.settings.live_trading_enabled:
             reasons.append("live trading is disabled")
         maximum = quantity if position_percent <= 0 else max(0, int(quantity * self.settings.max_position_percent / position_percent))
-        return RiskAssessment(approved=not reasons, rejection_reasons=reasons, maximum_allowed_quantity=maximum, estimated_position_percent=max(0, position_percent), estimated_daily_loss_percent=max(0, estimated_trade_loss_percent))
+        return RiskAssessment(
+            approved=not reasons,
+            rejection_reasons=reasons,
+            maximum_allowed_quantity=maximum,
+            estimated_position_percent=max(0, position_percent),
+            estimated_daily_loss_percent=max(0, estimated_trade_loss_percent),
+        )

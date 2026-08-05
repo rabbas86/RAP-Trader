@@ -45,4 +45,4 @@ mypy app
 
 ## Safety limitations
 
-Phase 1 predictions and decisions are placeholders, not investment advice. Live trading is disabled by default. Every order must pass deterministic risk controls before execution; no decision model may override them. Paper trading and backtesting are required before any future live-readiness assessment. See `docs/SAFETY.md`.
+Phase 1 predictions and decisions are placeholders, not investment advice. Live trading is disabled by default. `ExecutionService` submits an order only when it receives deterministic risk approval; no decision model may override that gate. Phase 1 exposes no order-submission API and includes no real-broker adapter. Paper trading and backtesting are required before any future live-readiness assessment. See `docs/SAFETY.md`.

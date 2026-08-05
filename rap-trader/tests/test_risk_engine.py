@@ -7,7 +7,9 @@ def engine() -> RiskEngine:
 
 
 def test_live_execution_is_rejected() -> None:
-    result = engine().assess(action="BUY", quantity=1, position_percent=1, estimated_trade_loss_percent=0.1, portfolio_drawdown_percent=0, live_order=True)
+    result = engine().assess(
+        action="BUY", quantity=1, position_percent=1, estimated_trade_loss_percent=0.1, portfolio_drawdown_percent=0, live_order=True
+    )
     assert not result.approved
     assert "live trading is disabled" in result.rejection_reasons
 
