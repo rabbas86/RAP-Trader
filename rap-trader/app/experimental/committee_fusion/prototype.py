@@ -1,4 +1,4 @@
-"""Isolated weighted-vote prototype retained for possible Phase 7 reuse.
+"""Isolated weighted-vote prototype retained for possible deferred Investment Committee phase reuse.
 
 This module has no production imports and deliberately exposes no trade output.
 Any future use requires a fresh Investment Committee architecture/safety review.
