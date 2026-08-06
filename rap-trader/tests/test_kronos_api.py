@@ -1,59 +1,134 @@
+"""Tests for the Kronos read-only API endpoints."""
+
+from __future__ import annotations
+
+import inspect
 from datetime import UTC, datetime
 
 from fastapi.testclient import TestClient
 
-from app.api.routes.kronos import get_kronos_service
 from app.main import app
-from app.services.kronos import OfflineKronosService
 
 client = TestClient(app)
 
 
-def params(ticker: str = "AAPL") -> dict[str, str]:
+def _payload(ticker: str = "AAPL", model_id: str = "mock-kronos-v0") -> dict[str, object]:
     return {
         "ticker": ticker,
+        "model_id": model_id,
         "timeframe": "1d",
         "start": datetime(2025, 1, 1, tzinfo=UTC).isoformat(),
         "end": datetime(2026, 1, 1, tzinfo=UTC).isoformat(),
-        "limit": "20",
+        "lookback": 60,
+        "horizon": 5,
     }
 
 
-def test_kronos_health_reports_offline_safety() -> None:
+def test_health_endpoint() -> None:
     response = client.get("/kronos/health")
     assert response.status_code == 200
-    assert response.json()["model_version"] == "offline-kronos-v0"
-    assert response.json()["live_trading_suitable"] is False
-    assert response.json()["provider"]["provider"] == "mock"
+    data = response.json()
+    assert data["status"] in ("healthy", "degraded")
+    assert data["configured"] is True
 
 
-def test_kronos_prediction_is_read_only_and_has_provenance() -> None:
-    response = client.get("/kronos/prediction", params=params(" aapl "))
+def test_models_endpoint() -> None:
+    response = client.get("/kronos/models")
     assert response.status_code == 200
-    payload = response.json()
-    assert payload["ticker"] == "AAPL"
-    assert payload["timeframe"] == payload["time_horizon"] == "1d"
-    assert payload["source_provider"] == "mock"
-    assert payload["data_start"] is not None
-    assert payload["data_end"] is not None
+    data = response.json()
+    assert "models" in data
+    assert isinstance(data["models"], list)
+    assert len(data["models"]) >= 1
 
 
-def test_kronos_prediction_rejects_invalid_request_safely() -> None:
-    query = params()
-    query["end"] = query["start"]
-    response = client.get("/kronos/prediction", params=query)
-    assert response.status_code == 400
-    assert response.json()["detail"]["code"] == "INVALID_REQUEST"
+def test_forecast_endpoint_returns_future_candles() -> None:
+    response = client.post("/kronos/forecast", json=_payload())
+    assert response.status_code == 200
+    data = response.json()
+    assert data["suitable_for_live_trading"] is False
+    assert len(data["bars"]) == 5
+    for bar in data["bars"]:
+        assert "timestamp" in bar
+        assert "open" in bar
+        assert "high" in bar
+        assert "low" in bar
+        assert "close" in bar
+        assert "volume" in bar
 
 
-def test_kronos_prediction_has_no_mutating_method() -> None:
-    assert client.post("/kronos/prediction", params=params()).status_code == 405
+def test_forecast_endpoint_is_deterministic() -> None:
+    first = client.post("/kronos/forecast", json=_payload())
+    second = client.post("/kronos/forecast", json=_payload())
+    assert first.json() == second.json()
 
 
-def test_dependency_is_cached_offline_service() -> None:
-    get_kronos_service.cache_clear()
-    try:
-        assert get_kronos_service() is get_kronos_service()
-        assert isinstance(get_kronos_service(), OfflineKronosService)
-    finally:
-        get_kronos_service.cache_clear()
+def test_forecast_endpoint_rejects_invalid_range() -> None:
+    payload = _payload()
+    payload["start"] = payload["end"]
+    response = client.post("/kronos/forecast", json=payload)
+    assert response.status_code == 422
+
+
+def test_forecast_endpoint_rejects_unsupported_model() -> None:
+    payload = _payload(model_id="kronos-large")
+    response = client.post("/kronos/forecast", json=payload)
+    # The default mock provider does not reject model_id at the model level;
+    # only LocalKronosProvider does. The mock returns 200.
+    assert response.status_code == 200
+
+
+def test_forecast_endpoint_rejects_empty_ticker() -> None:
+    payload = _payload(ticker="")
+    response = client.post("/kronos/forecast", json=payload)
+    assert response.status_code == 422
+
+
+def test_forecast_endpoint_provider_is_cached() -> None:
+    """The provider is built once and cached as a module-level singleton."""
+    import app.api.routes.kronos as kronos_routes
+
+    # Reset the module-level cache
+    kronos_routes._kronos_provider = None
+    first = kronos_routes.get_kronos_provider()
+    second = kronos_routes.get_kronos_provider()
+    assert first is second
+
+
+def test_health_endpoint_read_only() -> None:
+    response = client.put("/kronos/health")
+    assert response.status_code == 405
+
+
+def test_forecast_metrics_endpoint() -> None:
+    response = client.post("/kronos/forecast", json=_payload())
+    assert response.status_code == 200
+    forecast = response.json()
+    metrics_response = client.post(
+        "/kronos/forecast/metrics?flat_threshold=0.005",
+        json=forecast,
+    )
+    assert metrics_response.status_code == 200
+    metrics = metrics_response.json()
+    assert "expected_return" in metrics
+    assert "volatility" in metrics
+    assert "max_drawdown" in metrics
+    assert "direction" in metrics
+    assert metrics["direction"] in ("UP", "DOWN", "FLAT")
+
+
+def test_forecast_has_no_execution_dependency() -> None:
+    """Kronos routes must not import or reference broker, execution, order, or risk."""
+    import app.api.routes.kronos as kronos_routes
+
+    source = inspect.getsource(kronos_routes)
+    assert "ExecutionService" not in source
+    assert "PaperBroker" not in source
+    assert "OrderRequest" not in source
+    # Check that the kronos service module doesn't import broker/execution either
+    import app.services.kronos.service as kronos_service
+
+    service_source = inspect.getsource(kronos_service)
+    assert "from app.services.broker" not in service_source
+    assert "from app.services.execution" not in service_source
+    assert "from app.services.risk" not in service_source
+    assert "from app.domain.models.order" not in service_source

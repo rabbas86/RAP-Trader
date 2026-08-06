@@ -18,6 +18,16 @@ class Settings(BaseSettings):
     max_position_percent: float = Field(default=5, gt=0, le=100, validation_alias="MAX_POSITION_PERCENT")
     max_daily_loss_percent: float = Field(default=2, gt=0, le=100, validation_alias="MAX_DAILY_LOSS_PERCENT")
     max_portfolio_drawdown_percent: float = Field(default=10, gt=0, le=100, validation_alias="MAX_PORTFOLIO_DRAWDOWN_PERCENT")
+    kronos_provider: str = Field(default="mock", validation_alias="KRONOS_PROVIDER")
+    kronos_model_id: str = Field(default="mock-kronos-v0", validation_alias="KRONOS_MODEL_ID")
+    kronos_offline_only: bool = Field(default=True, validation_alias="KRONOS_OFFLINE_ONLY")
+    kronos_device: str = Field(default="cpu", validation_alias="KRONOS_DEVICE")
+    kronos_model_path: str | None = Field(default=None, validation_alias="KRONOS_MODEL_PATH")
+    kronos_tokenizer_path: str | None = Field(default=None, validation_alias="KRONOS_TOKENIZER_PATH")
+    kronos_max_lookback: int = Field(default=60, gt=0, validation_alias="KRONOS_MAX_LOOKBACK")
+    kronos_max_forecast_horizon: int = Field(default=5, gt=0, validation_alias="KRONOS_MAX_FORECAST_HORIZON")
+    kronos_max_sample_count: int = Field(default=1, gt=0, validation_alias="KRONOS_MAX_SAMPLE_COUNT")
+    kronos_timeout_seconds: float = Field(default=30.0, gt=0, validation_alias="KRONOS_TIMEOUT_SECONDS")
 
     @model_validator(mode="after")
     def reject_disabled_live_mode(self) -> "Settings":
