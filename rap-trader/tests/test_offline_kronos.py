@@ -168,7 +168,10 @@ def test_mock_forecast_deterministic_across_instances() -> None:
     req = make_request()
     p1 = MockKronosProvider()
     p2 = MockKronosProvider()
-    assert p1.forecast(req) == p2.forecast(req)
+    f1 = p1.forecast(req)
+    f2 = p2.forecast(req)
+    # Compare excluding generated_at (wall-clock timestamp varies)
+    assert f1.model_dump(exclude={"generated_at"}) == f2.model_dump(exclude={"generated_at"})
 
 
 def test_mock_forecast_cache_hits() -> None:
@@ -284,7 +287,10 @@ def test_sma_forecast_is_deterministic() -> None:
     p1 = SMAForecastProvider(provider=StaticProvider(closes))
     p2 = SMAForecastProvider(provider=StaticProvider(closes))
     req = make_request(model_id=SMA_BASELINE_MODEL_ID, lookback=20)
-    assert p1.forecast(req) == p2.forecast(req)
+    f1 = p1.forecast(req)
+    f2 = p2.forecast(req)
+    # Compare excluding generated_at (wall-clock timestamp varies)
+    assert f1.model_dump(exclude={"generated_at"}) == f2.model_dump(exclude={"generated_at"})
 
 
 def test_sma_insufficient_history_falls_back() -> None:

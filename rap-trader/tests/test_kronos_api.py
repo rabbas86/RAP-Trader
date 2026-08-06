@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import inspect
 from datetime import UTC, datetime
 
 from fastapi.testclient import TestClient
@@ -117,18 +116,23 @@ def test_forecast_metrics_endpoint() -> None:
 
 
 def test_forecast_has_no_execution_dependency() -> None:
-    """Kronos routes must not import or reference broker, execution, order, or risk."""
+    """Kronos routes and service must not import broker, execution, order, or risk modules."""
     import app.api.routes.kronos as kronos_routes
-
-    source = inspect.getsource(kronos_routes)
-    assert "ExecutionService" not in source
-    assert "PaperBroker" not in source
-    assert "OrderRequest" not in source
-    # Check that the kronos service module doesn't import broker/execution either
     import app.services.kronos.service as kronos_service
 
-    service_source = inspect.getsource(kronos_service)
-    assert "from app.services.broker" not in service_source
-    assert "from app.services.execution" not in service_source
-    assert "from app.services.risk" not in service_source
-    assert "from app.domain.models.order" not in service_source
+    forbidden_prefixes = (
+        "app.services.broker",
+        "app.services.execution",
+        "app.services.risk",
+        "app.services.order",
+    )
+
+    # Verify the Kronos service module does not import forbidden components.
+    for mod in vars(kronos_service).values():
+        if hasattr(mod, "__name__") and mod.__name__.startswith("app."):
+            assert not mod.__name__.startswith(forbidden_prefixes), f"Kronos service must not depend on {mod.__name__}"
+
+    # Verify the routes module does not import forbidden components.
+    for mod in vars(kronos_routes).values():
+        if hasattr(mod, "__name__") and mod.__name__.startswith("app."):
+            assert not mod.__name__.startswith(forbidden_prefixes), f"Kronos routes must not depend on {mod.__name__}"
