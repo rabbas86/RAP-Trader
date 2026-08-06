@@ -33,3 +33,34 @@ Returns Kronos service health: status, model_version (`offline-kronos-v0`), `liv
 Parameters are `ticker`, `timeframe`, timezone-aware ISO 8601 `start` and `end`, and optional positive `limit`. Returns a `KronosPrediction` with direction (UP/DOWN/FLAT), confidence (0-1), expected_return, time_horizon, generated_at, model_version, and bar provenance (timeframe, source_provider, data_start, data_end).
 
 The default `OfflineKronosService` applies a deterministic SMA crossover (5-period short vs 20-period long) over bars from the configured provider. Predictions are offline, reproducible, and not suitable for live trading. Insufficient bars or provider errors produce a FLAT fallback with confidence 0. Failures expose only safe error codes and messages.
+
+## `POST /backtests/run`
+
+Runs a walk-forward backtest with deterministic, offline defaults. Accepts a `BacktestRunRequest`
+JSON body with fields: `ticker`, `timeframe`, `start`, `end` (all UTC), `lookback` (default 60),
+`horizon` (default 5), `step` (default 5), `max_windows` (optional cap), `seed` (default 42),
+`include_local_kronos` (default false), `research_simulation` (default false), `short_selling`
+(default false), `leverage` (default 1.0), `transaction_cost_bps` (default 0.0), and
+`slippage_bps` (default 0.0).
+
+Returns a `BacktestRunResult` with `research_only=True`, `suitable_for_live_trading=False`,
+per-provider aggregated metrics, regime distribution, and optional research signal / cost
+results. No orders are submitted, no broker is connected, no model is downloaded, and no network
+access occurs with default settings.
+
+## `GET /backtests/providers`
+
+Returns `{"providers": [...], "benchmark_only": true, "local_kronos_available": true}`.
+
+## `GET /backtests/{backtest_id}`
+
+Returns the full stored `BacktestRunResult`. Returns 404 if the backtest ID is not found.
+
+## `GET /backtests/{backtest_id}/summary`
+
+Returns a `BacktestSummary` with best provider by RMSE, mean MAE/RMSE per provider, regime
+distribution, and window counts. Returns 404 if not found.
+
+The backtesting engine enforces hard no-lookahead runtime guards: forecast timestamps cannot
+overlap context bars, must match expected target timestamps exactly, and no bar beyond
+`context_end` is ever returned. See `docs/BACKTESTING.md` for full documentation.

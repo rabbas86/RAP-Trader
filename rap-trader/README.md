@@ -23,6 +23,25 @@ Read-only endpoints are `GET /market-data/health`, `GET /market-data/timeframes`
 
 Adjustment policies are `raw` (reported OHLC), `split_adjusted` (split-adjusted OHLC), and `total_return_adjusted` (splits plus distributions; currently rejected). Session policies are `regular`, `extended`, and `all`; `regular` is the default. All accepted timestamps and provenance times are normalized to UTC. yfinance translates class-share symbols such as BRK.B to BRK-B.
 
+## Backtesting (Phase 4)
+
+Read-only endpoints are `POST /backtests/run`, `GET /backtests/providers`, `GET /backtests/{id}`,
+and `GET /backtests/{id}/summary`. Backtesting is **research-only**: it does not submit orders,
+execute trades, or invoke any broker, execution, risk, or portfolio service. Every result carries
+`research_only=True` and `suitable_for_live_trading=False`.
+
+The backtest runner performs deterministic walk-forward evaluation: it splits historical data into
+non-overlapping evaluation windows, each with a context period (history available to the forecast
+provider) and a target period (future bars compared against the forecast). The engine enforces hard
+no-lookahead runtime guards — forecast timestamps cannot appear in the context, must match expected
+target timestamps exactly, and no bar beyond `context_end` is ever returned by the market-data
+provider.
+
+Four deterministic benchmark providers are available by default: MockKronosProvider,
+SMAForecastProvider, LastValueForecastProvider, and DriftForecastProvider. The CLI
+(`python -m app.cli.backtest`) runs a bounded offline mock backtest with no server, no network,
+and no model download. See `docs/BACKTESTING.md` and `docs/phases/PHASE_04_BACKTESTING.md`.
+
 ## Kronos offline forecasting
 
 Read-only endpoints are `GET /kronos/health` and `GET /kronos/prediction`. The prediction endpoint accepts `ticker`, `timeframe`, timezone-aware ISO 8601 `start`, `end`, and an optional `limit`. It returns a `KronosPrediction` with direction (UP/DOWN/FLAT), confidence (0-1), expected_return, time_horizon, generated_at, model_version, and bar provenance (timeframe, source_provider, data_start, data_end).

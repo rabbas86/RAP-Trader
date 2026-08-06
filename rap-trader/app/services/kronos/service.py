@@ -316,7 +316,7 @@ class SMAForecastProvider(KronosForecastProvider):
         """Produce a flat zero-confidence forecast when SMA cannot be computed."""
         step = _timeframe_delta(request.timeframe)
         bars: list[ForecastBar] = []
-        current = request.end
+        current = request.end + step
         for _i in range(request.horizon):
             bars.append(
                 ForecastBar(
@@ -379,7 +379,7 @@ class SMAForecastProvider(KronosForecastProvider):
         last_close = closes[-1]
         step = _timeframe_delta(request.timeframe)
         bars: list[ForecastBar] = []
-        current = request.end
+        current = request.end + step
         price = last_close
         for i in range(request.horizon):
             open_price = price

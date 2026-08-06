@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     kronos_max_forecast_horizon: int = Field(default=5, gt=0, validation_alias="KRONOS_MAX_FORECAST_HORIZON")
     kronos_max_sample_count: int = Field(default=1, gt=0, validation_alias="KRONOS_MAX_SAMPLE_COUNT")
     kronos_timeout_seconds: float = Field(default=30.0, gt=0, validation_alias="KRONOS_TIMEOUT_SECONDS")
+    backtest_offline_only: bool = Field(default=True, validation_alias="BACKTEST_OFFLINE_ONLY")
+    backtest_result_dir: str = Field(default="backtest_results", validation_alias="BACKTEST_RESULT_DIR")
 
     @model_validator(mode="after")
     def reject_disabled_live_mode(self) -> "Settings":

@@ -13,3 +13,8 @@
 - Strategy, model, configuration, or prompt changes require documented validation and regression testing.
 - Future live mode requires explicit configuration, operational controls, monitoring, reconciliation, and human approval beyond Phase 1.
 - Phase 3 Kronos predictions are deterministic offline SMA crossover signals only, marked `LIVE_TRADING_SUITABLE = False`. They are not investment advice and do not bypass risk controls. Predictions are cached and reproducible for identical inputs.
+
+- Phase 4 backtesting is research-only. It does not submit orders, execute trades, or invoke any broker, execution, order, risk, or portfolio service. Every backtest result carries `research_only=True` and `suitable_for_live_trading=False`.
+- The backtesting engine enforces hard no-lookahead runtime guards: forecast timestamps cannot overlap context bars, must match expected target timestamps exactly, and no bar beyond `context_end` is ever returned by the market-data provider.
+- Backtest providers are deterministic benchmarks (Mock, SMA, LastValue, Drift), not learned models. Results do not constitute investment advice and are subject to overfitting risk.
+- Default backtests use offline mock market data. No network access or model download occurs. LocalKronosProvider remains opt-in and lazily loaded.
