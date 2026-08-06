@@ -3,13 +3,17 @@
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 from functools import lru_cache
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.domain.models.analyst import AnalystError, AnalystMetadata, AnalystOpinion, AnalystRequest
+from app.domain.models.market_data import Timeframe
+from app.domain.models.technical import TechnicalAnalysisSnapshot
 from app.services.analyst import AnalystService, OpinionAggregationService
+from app.services.technical_analysis import TechnicalAnalyst
 
 router = APIRouter(prefix="/analysts", tags=["analysts"])
 
@@ -30,6 +34,29 @@ def _error(exc: AnalystError) -> HTTPException:
 @router.get("", response_model=list[AnalystMetadata])
 def analysts(service: Service) -> list[AnalystMetadata]:
     return service.list()
+
+
+@router.get("/technical/snapshot", response_model=TechnicalAnalysisSnapshot)
+def technical_snapshot(
+    ticker: str, service: Service, timeframe: Timeframe = "1d", lookback: int = 60, as_of: datetime | None = None
+) -> TechnicalAnalysisSnapshot:
+    evaluation_time = as_of or datetime.now(UTC)
+    try:
+        request = AnalystRequest(
+            analyst_id="technical",
+            ticker=ticker,
+            timeframe=timeframe,
+            as_of=evaluation_time,
+            lookback=lookback,
+            horizon=1,
+            asset_class="equity",
+        )
+        analyst = cast(TechnicalAnalyst, service.analyst("technical"))
+        return analyst.snapshot(request)
+    except (AnalystError, ValueError) as exc:
+        if isinstance(exc, AnalystError):
+            raise _error(exc) from exc
+        raise HTTPException(status_code=422, detail={"code": "INVALID_REQUEST", "safe_message": str(exc)}) from exc
 
 
 @router.get("/{analyst_id}/health")

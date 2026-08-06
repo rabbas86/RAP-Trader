@@ -1,5 +1,7 @@
 # Backtesting
 
+Phase 6 can consume a serialized Phase 4 `backtest_result` as calibrated research evidence without making an opinion decision-ready or live-trading suitable.
+
 Phase 4 adds reproducible, offline, deterministic walk-forward backtesting for forecast quality
 evaluation. Backtesting is strictly **research-only**: it does not submit orders, execute trades,
 or invoke any broker, execution, risk-approval, portfolio-allocation, or live-trading component.

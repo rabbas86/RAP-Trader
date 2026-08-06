@@ -1,5 +1,7 @@
 # API
 
+Phase 6 adds `GET /analysts/technical/snapshot` (`ticker`, `timeframe`, `lookback`, optional UTC `as_of`) and extends `POST /analysts/technical/analyze` with structured evidence.
+
 ## `GET /health`
 
 Returns service health and the active trading mode. It does not submit orders.

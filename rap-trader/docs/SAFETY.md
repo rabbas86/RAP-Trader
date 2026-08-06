@@ -1,5 +1,7 @@
 # Safety
 
+Phase 6 is research-only, excludes observations after `as_of`, and has no broker, execution, risk-approval, portfolio-allocation, committee, Chairman, or live-trading integration.
+
 - Offline Kronos predictions are not investment advice, are explicitly unsuitable for live trading, and cannot submit orders or bypass risk controls.
 - Kronos uses no network LLM or live stream. Its default market-data dependency is deterministic and offline; provider errors fail to `FLAT` with zero confidence.
 

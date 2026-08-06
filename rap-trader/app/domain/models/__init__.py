@@ -70,6 +70,7 @@ from app.domain.models.order import OrderRequest, OrderResult
 from app.domain.models.portfolio import PortfolioContext
 from app.domain.models.prediction import KronosPrediction
 from app.domain.models.risk import RiskAssessment  # noqa: F401  (re-exported for Phase 1 consumers)
+from app.domain.models.technical import MarketStructureState, SwingPoint, TechnicalAnalysisSnapshot, TechnicalIndicatorValue, TechnicalLevel
 
 __all__ = [
     "BACKTEST_SCHEMA_VERSION",
@@ -119,6 +120,7 @@ __all__ = [
     "MarketDataError",
     "MarketDataErrorCode",
     "MarketRegime",
+    "MarketStructureState",
     "ModelIdentity",
     "OHLCVBar",
     "OpinionSummary",
@@ -131,7 +133,11 @@ __all__ = [
     "ResearchSignal",
     "ResearchSignalRow",
     "SessionPolicy",
+    "SwingPoint",
     "Symbol",
+    "TechnicalAnalysisSnapshot",
+    "TechnicalIndicatorValue",
+    "TechnicalLevel",
     "Timeframe",
     "TraceEdge",
     "TraceNode",

@@ -1,5 +1,7 @@
 # Kronos Forecasting
 
+Phase 6 can consume a serialized `kronos_forecast` as optional research evidence; it is never converted into an order or execution instruction.
+
 Kronos is the forecasting layer of RAP Trader. It produces deterministic, offline OHLCV bar
 forecasts that are consumed by downstream analysis, backtesting, and (eventually) decision
 engines.

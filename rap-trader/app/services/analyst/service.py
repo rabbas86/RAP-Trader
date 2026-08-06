@@ -360,7 +360,12 @@ class AnalystService:
     """Registry facade for analysts; it stores opinions but never makes decisions."""
 
     def __init__(self, analysts: list[Analyst] | None = None, store: OpinionStore | None = None) -> None:
-        values = analysts or [MockAnalyst()]
+        if analysts is None:
+            from app.services.technical_analysis.service import TechnicalAnalyst
+
+            values = [MockAnalyst(), TechnicalAnalyst()]
+        else:
+            values = analysts
         self.analysts = {item.metadata().analyst_id: item for item in values}
         self.store = store or InMemoryAnalystOpinionStore()
 

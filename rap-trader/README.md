@@ -1,5 +1,7 @@
 # RAP Trader
 
+Phase 6 adds the deterministic, research-only `technical` analyst. See [Technical Analyst](docs/TECHNICAL_ANALYST.md).
+
 Phase 3 adds deterministic offline Kronos forecasting over the Phase 2 market-data boundary. Live trading remains disabled, no real-broker adapter or order API exists, and forecasts are not investment advice.
 
 RAP Trader is a modular foundation for an AI-assisted US-equities paper-trading platform. Phase 3 adds deterministic offline Kronos forecasting on top of the Phase 1 safety foundation and Phase 2 validated market data. Live trading remains disabled, no real-broker adapter or order API exists, and paper orders/cache entries remain process-local.

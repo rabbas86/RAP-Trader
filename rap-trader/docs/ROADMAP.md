@@ -1,5 +1,7 @@
 # Roadmap
 
+- Phase 6: complete technical analyst architecture (implemented).
+
 1. Phase 1 - safe modular foundation and in-memory paper simulation.
 2. Phase 2 - validated market-data ingestion (complete: bounded deterministic mock, isolated yfinance adapter, policy-aware cache, strict UTC/provenance contracts, safe errors, and read-only API).
 3. Phase 3 - offline Kronos integration and evaluation (complete: deterministic SMA crossover forecast over Phase 2 market data, cached predictions, read-only Kronos API endpoints, provenance fields on KronosPrediction).

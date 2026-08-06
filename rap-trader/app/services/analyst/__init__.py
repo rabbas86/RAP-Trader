@@ -12,6 +12,7 @@ from app.services.analyst.service import (
     OpinionAggregationService,
     OpinionStore,
 )
+from app.services.technical_analysis.service import TechnicalAnalyst, TechnicalAnalystConfig
 
 __all__ = [
     "Analyst",
@@ -26,4 +27,6 @@ __all__ = [
     "MockAnalyst",
     "OpinionAggregationService",
     "OpinionStore",
+    "TechnicalAnalyst",
+    "TechnicalAnalystConfig",
 ]

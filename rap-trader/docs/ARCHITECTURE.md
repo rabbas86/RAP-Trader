@@ -1,5 +1,7 @@
 # Architecture
 
+Technical analysis separates indicator orchestration, causal structure, level clustering, and deterministic synthesis. A trace DAG links requests and sources through evidence to research opinions.
+
 RAP Trader is a modular monolith. API routes translate HTTP requests; domain models define contracts; services isolate market data, analysis, decisions, risk, portfolio state, brokerage, and execution.
 
 Phase 2's boundary is `MarketDataProvider`. `MockMarketDataProvider` deterministically generates a bounded number of synthetic bars without network access. `YFinanceMarketDataProvider` is opt-in, maps and validates public responses, localizes source timestamps using exchange-timezone policy, applies bounded retries/timeouts, and translates failures into stable safe errors. Both use `AbstractCache`; SHA-256 keys include provider identity, adjustment/session semantics, and provider configuration to prevent cross-provider and cross-policy collisions. The default in-memory implementation provides TTL expiry and bounded LRU eviction.
