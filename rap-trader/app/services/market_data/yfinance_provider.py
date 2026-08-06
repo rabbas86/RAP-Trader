@@ -89,9 +89,25 @@ class YFinanceMarketDataProvider(MarketDataProvider):
             ) from exc
         return cast(datetime, timestamp.to_pydatetime())
 
+    def _validate_columns(self, data: Any) -> None:
+        expected = {"Open", "High", "Low", "Close", "Volume"}
+        names = [column[0] if isinstance(column, tuple) else column for column in data.columns]
+        missing = expected.difference(names)
+        ambiguous = {name for name in expected if names.count(name) != 1}
+        if missing or ambiguous:
+            detail = f"missing={sorted(missing)!r}, ambiguous={sorted(ambiguous)!r}"
+            raise self._error(
+                MarketDataErrorCode.MALFORMED_RESPONSE,
+                "Market data provider returned an invalid schema",
+                detail=detail,
+            )
+
     def get_bars(self, request: HistoricalBarsRequest) -> HistoricalBarsResult:
         if request.adjustment == "total_return_adjusted":
-            raise self._error(MarketDataErrorCode.ADJUSTMENT_UNSUPPORTED, "The requested adjustment policy is not supported")
+            raise self._error(
+                MarketDataErrorCode.ADJUSTMENT_UNSUPPORTED,
+                "The requested adjustment policy is not supported",
+            )
         if request.session != "regular" and request.timeframe == "1w":
             raise self._error(MarketDataErrorCode.INVALID_REQUEST, "Extended sessions are not supported for weekly bars")
         key = self._cache_key(request)
@@ -108,12 +124,16 @@ class YFinanceMarketDataProvider(MarketDataProvider):
                 is_timeout = isinstance(exc, TimeoutError) or "timeout" in type(exc).__name__.lower()
                 code = MarketDataErrorCode.TIMEOUT if is_timeout else MarketDataErrorCode.PROVIDER_UNAVAILABLE
                 if attempt == self.max_retries:
-                    logger.exception("yfinance download failed", extra={"service": "yfinance", "event": "get_bars", "result": "error"})
+                    logger.exception(
+                        "yfinance download failed",
+                        extra={"service": "yfinance", "event": "get_bars", "result": "error"},
+                    )
                     raise self._error(code, "Market data provider request failed", retryable=True, detail=repr(exc)) from exc
                 self._sleeper(float(2**attempt))
 
         if data is None or not hasattr(data, "empty") or data.empty:
             raise self._error(MarketDataErrorCode.NO_DATA, "No market data matched the request")
+        self._validate_columns(data)
 
         bars_by_timestamp: dict[datetime, OHLCVBar] = {}
         malformed_rows = 0

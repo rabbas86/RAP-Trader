@@ -2,7 +2,10 @@ from datetime import UTC, datetime
 
 from fastapi.testclient import TestClient
 
+from app.api.routes.market_data import get_market_data_provider
+from app.domain.models import HistoricalBarsRequest, HistoricalBarsResult, MarketDataError, MarketDataErrorCode, ProviderHealth
 from app.main import app
+from app.services.market_data import MarketDataProvider
 
 client = TestClient(app)
 
@@ -52,3 +55,33 @@ def test_market_data_bars_rejects_invalid_range_and_timeframe() -> None:
     query = params()
     query["timeframe"] = "2m"
     assert client.get("/market-data/bars", params=query).status_code == 422
+
+
+class FailingProvider(MarketDataProvider):
+    def get_bars(self, request: HistoricalBarsRequest) -> HistoricalBarsResult:
+        raise MarketDataError(
+            MarketDataErrorCode.PROVIDER_UNAVAILABLE,
+            "Market data provider request failed",
+            "failing",
+            internal_detail="secret upstream exception",
+        )
+
+    def health(self) -> ProviderHealth:
+        raise NotImplementedError
+
+    def supported_timeframes(self) -> list[str]:
+        return ["1d"]
+
+
+def test_provider_exception_detail_is_not_exposed() -> None:
+    app.dependency_overrides[get_market_data_provider] = FailingProvider
+    try:
+        response = client.get("/market-data/bars", params=params())
+    finally:
+        app.dependency_overrides.clear()
+    assert response.status_code == 400
+    assert response.json()["detail"] == {
+        "code": "PROVIDER_UNAVAILABLE",
+        "safe_message": "Market data provider request failed",
+    }
+    assert "secret upstream exception" not in response.text

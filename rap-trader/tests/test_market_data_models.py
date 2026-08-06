@@ -7,7 +7,14 @@ from app.domain.models import HistoricalBarsRequest, HistoricalBarsResult, OHLCV
 
 
 def bar(timestamp: datetime | None = None) -> OHLCVBar:
-    return OHLCVBar(timestamp=timestamp or datetime(2026, 1, 1, tzinfo=UTC), open=10.0, high=12.0, low=9.0, close=11.0, volume=100)
+    return OHLCVBar(
+        timestamp=timestamp or datetime(2026, 1, 1, tzinfo=UTC),
+        open=10.0,
+        high=12.0,
+        low=9.0,
+        close=11.0,
+        volume=100,
+    )
 
 
 @pytest.mark.parametrize("value", [" aapl ", "BRK.B", "BF.B", "ABC123.X"])

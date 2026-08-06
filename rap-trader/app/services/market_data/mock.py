@@ -14,6 +14,7 @@ from app.services.market_data.base import MarketDataProvider
 from app.services.market_data.cache import AbstractCache, InMemoryCache, cache_key_builder
 
 SUPPORTED_SYMBOLS = frozenset({"AAPL", "MSFT", "GOOG", "TSLA", "SPY", "BRK.B", "BF.B"})
+MAX_LIMIT = 5000
 TIMEFRAME_DELTAS = {
     "1m": timedelta(minutes=1),
     "5m": timedelta(minutes=5),
@@ -22,13 +23,22 @@ TIMEFRAME_DELTAS = {
     "1d": timedelta(days=1),
     "1w": timedelta(weeks=1),
 }
-MAX_RANGES = {"1m": timedelta(days=365 * 5), "1d": timedelta(days=365 * 10)}
+MAX_RANGES = {
+    "1m": timedelta(days=365 * 5),
+    "5m": timedelta(days=365 * 5),
+    "15m": timedelta(days=365 * 5),
+    "1h": timedelta(days=365 * 5),
+    "1d": timedelta(days=365 * 10),
+    "1w": timedelta(days=365 * 10),
+}
 
 
 class MockMarketDataProvider(MarketDataProvider):
     """Deterministic synthetic data; timestamps are not exchange-calendar accurate."""
 
-    def __init__(self, cache: AbstractCache[HistoricalBarsResult] | None = None, max_limit: int = 5000) -> None:
+    MAX_LIMIT = MAX_LIMIT
+
+    def __init__(self, cache: AbstractCache[HistoricalBarsResult] | None = None, max_limit: int = MAX_LIMIT) -> None:
         super().__init__(timeout_seconds=1.0, max_retries=0)
         if max_limit <= 0:
             raise ValueError("max_limit must be positive")
@@ -39,7 +49,13 @@ class MockMarketDataProvider(MarketDataProvider):
         return MarketDataError(code, message, "mock")
 
     def _cache_key(self, request: HistoricalBarsRequest) -> str:
-        return cache_key_builder("mock", request, request.adjustment, request.session, {"max_limit": self.max_limit, "version": 2})
+        return cache_key_builder(
+            "mock",
+            request,
+            request.adjustment,
+            request.session,
+            {"max_limit": self.max_limit, "version": 2},
+        )
 
     def get_bars(self, request: HistoricalBarsRequest) -> HistoricalBarsResult:
         symbol = str(request.symbol)
