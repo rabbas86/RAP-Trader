@@ -23,6 +23,12 @@ Read-only endpoints are `GET /market-data/health`, `GET /market-data/timeframes`
 
 Adjustment policies are `raw` (reported OHLC), `split_adjusted` (split-adjusted OHLC), and `total_return_adjusted` (splits plus distributions; currently rejected). Session policies are `regular`, `extended`, and `all`; `regular` is the default. All accepted timestamps and provenance times are normalized to UTC. yfinance translates class-share symbols such as BRK.B to BRK-B.
 
+## Analyst framework (Phase 5)
+
+Phase 5 provides strict, research-only analyst opinions through `GET /analysts`, analyst health and metadata routes, `POST /analysts/{analyst_id}/analyze`, descriptive aggregation, and stored-opinion retrieval. The default analyst is deterministic and offline. Analysts cannot create trades; all outputs are unsuitable for live trading and not decision-ready. Confidence is not certainty.
+
+This phase defines contracts, not specialist intelligence. Technical Analyst starts in Phase 6; Risk Officer, Investment Committee, and Chairman remain future phases. See [the analyst framework](docs/ANALYST_FRAMEWORK.md).
+
 ## Backtesting (Phase 4)
 
 Read-only endpoints are `POST /backtests/run`, `GET /backtests/providers`, `GET /backtests/{id}`,

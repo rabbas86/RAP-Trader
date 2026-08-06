@@ -7,3 +7,10 @@
 5. Phase 5 - AI evidence fusion under deterministic risk controls.
 6. Phase 6 - external paper-broker integration and reconciliation.
 7. Phase 7 - monitored live-trading readiness review; live operation remains separately gated.
+# Phase 5
+
+Common analyst opinion framework: contracts, evidence, confidence, freshness, traceability, persistence, descriptive aggregation, API, and CLI. No specialist intelligence or decisions.
+
+# Phase 6
+
+Technical Analyst specialist intelligence begins.

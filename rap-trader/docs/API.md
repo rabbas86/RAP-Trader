@@ -64,3 +64,13 @@ distribution, and window counts. Returns 404 if not found.
 The backtesting engine enforces hard no-lookahead runtime guards: forecast timestamps cannot
 overlap context bars, must match expected target timestamps exactly, and no bar beyond
 `context_end` is ever returned. See `docs/BACKTESTING.md` for full documentation.
+# Analyst endpoints (Phase 5)
+
+- `GET /analysts` lists configured research analysts.
+- `GET /analysts/{analyst_id}/health` reports health.
+- `GET /analysts/{analyst_id}/metadata` reports capabilities and safety flags.
+- `POST /analysts/{analyst_id}/analyze` accepts an `AnalystRequest` and returns an `AnalystOpinion`.
+- `POST /analysts/opinions/aggregate` describes multiple opinions without making a decision.
+- `GET /analysts/opinions/{opinion_id}` retrieves a stored opinion.
+
+All analyst responses are research-only and cannot create trades. Public errors expose only stable codes and safe messages.

@@ -1,2 +1,1 @@
-class TechnicalAnalysisService:
-    """Phase 1 boundary for future deterministic technical evidence."""
+"""Placeholder: specialist technical analysis begins in Phase 6."""

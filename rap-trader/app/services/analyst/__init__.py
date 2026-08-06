@@ -1,11 +1,10 @@
-"""Application services."""
-
-from app.services.analyst import (
+from app.services.analyst.service import (
     Analyst,
     AnalystConfig,
     AnalystService,
     ConfidenceAssessmentService,
     DataFreshnessService,
+    EvidenceCollector,
     EvidenceValidationService,
     InMemoryAnalystOpinionStore,
     JSONFileAnalystOpinionStore,
@@ -20,6 +19,7 @@ __all__ = [
     "AnalystService",
     "ConfidenceAssessmentService",
     "DataFreshnessService",
+    "EvidenceCollector",
     "EvidenceValidationService",
     "InMemoryAnalystOpinionStore",
     "JSONFileAnalystOpinionStore",

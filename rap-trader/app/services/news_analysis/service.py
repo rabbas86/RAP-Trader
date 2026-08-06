@@ -1,2 +1,1 @@
-class NewsAnalysisService:
-    """Phase 1 boundary for future news evidence."""
+"""Placeholder for a future news analyst phase."""

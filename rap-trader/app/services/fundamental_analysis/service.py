@@ -1,2 +1,1 @@
-class FundamentalAnalysisService:
-    """Phase 1 boundary for future fundamental evidence."""
+"""Placeholder for a future fundamental analyst phase."""

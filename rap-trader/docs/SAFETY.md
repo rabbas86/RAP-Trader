@@ -18,3 +18,6 @@
 - The backtesting engine enforces hard no-lookahead runtime guards: forecast timestamps cannot overlap context bars, must match expected target timestamps exactly, and no bar beyond `context_end` is ever returned by the market-data provider.
 - Backtest providers are deterministic benchmarks (Mock, SMA, LastValue, Drift), not learned models. Results do not constitute investment advice and are subject to overfitting risk.
 - Default backtests use offline mock market data. No network access or model download occurs. LocalKronosProvider remains opt-in and lazily loaded.
+# Phase 5 analyst safety
+
+Analysts cannot create trades. Their outputs permanently declare `decision_ready=false`, `suitable_for_live_trading=false`, and `research_only=true`. Confidence is not certainty and uncalibrated confidence is capped. Availability timestamps prevent lookahead, freshness policies reject stale evidence, and provenance/trace validation prevents local path and credential leakage. Aggregation is descriptive only; Risk Officer, Committee, and Chairman are future phases.
