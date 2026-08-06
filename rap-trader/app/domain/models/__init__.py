@@ -41,6 +41,19 @@ from app.domain.models.backtesting import (
     ResearchSignalRow,
 )
 from app.domain.models.decision import AgentEvidence, TradeDecision
+from app.domain.models.features import (
+    FeatureCategory,
+    FeatureDependency,
+    FeatureError,
+    FeatureId,
+    FeatureMetadata,
+    FeatureSnapshot,
+    FeatureSnapshotRequest,
+    FeatureStoreHealth,
+    FeatureStoreStatistics,
+    FeatureValue,
+    FeatureVector,
+)
 from app.domain.models.kronos import (
     SMA_BASELINE_MODEL_ID,
     ForecastBar,
@@ -104,6 +117,17 @@ __all__ = [
     "EvidenceItem",
     "EvidenceStrength",
     "EvidenceType",
+    "FeatureCategory",
+    "FeatureDependency",
+    "FeatureError",
+    "FeatureId",
+    "FeatureMetadata",
+    "FeatureSnapshot",
+    "FeatureSnapshotRequest",
+    "FeatureStoreHealth",
+    "FeatureStoreStatistics",
+    "FeatureValue",
+    "FeatureVector",
     "ForecastBar",
     "ForecastMetrics",
     "HistoricalBarsRequest",

@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
-from itertools import pairwise
-from math import sqrt
 from threading import RLock
 from typing import Any, ClassVar, Literal
 from uuid import NAMESPACE_URL, uuid5
@@ -34,6 +32,10 @@ from app.domain.models.analyst import (
 from app.domain.models.market_data import HistoricalBarsRequest, MarketDataError, OHLCVBar, Symbol, Timeframe, _require_aware_utc
 from app.domain.models.technical import TechnicalAnalysisSnapshot, TechnicalIndicatorValue
 from app.services.analyst.service import Analyst, ConfidenceAssessmentService, DataFreshnessService, EvidenceValidationService
+from app.services.features.generators.momentum import MomentumFeatureGenerator
+from app.services.features.generators.trend import TrendFeatureGenerator
+from app.services.features.generators.volatility import VolatilityFeatureGenerator
+from app.services.features.generators.volume import VolumeFeatureGenerator
 from app.services.market_data import MarketDataProvider, MockMarketDataProvider, cache_key_builder
 from app.services.technical_analysis.levels import clustered_levels
 from app.services.technical_analysis.structure import classify_structure, confirmed_swings
@@ -135,131 +137,67 @@ class TechnicalAnalyst(Analyst):
 
     @staticmethod
     def sma(values: list[float], period: int) -> float:
-        if period <= 0 or len(values) < period:
-            raise ValueError("insufficient values for SMA")
-        return sum(values[-period:]) / period
+        return TrendFeatureGenerator.sma(values, period)
 
     @staticmethod
     def ema_series(values: list[float], period: int) -> list[float]:
-        if period <= 0 or len(values) < period:
-            raise ValueError("insufficient values for EMA")
-        alpha, result = 2 / (period + 1), [sum(values[:period]) / period]
-        for value in values[period:]:
-            result.append(value * alpha + result[-1] * (1 - alpha))
-        return result
+        return TrendFeatureGenerator.ema_series(values, period)
 
     @classmethod
     def ema(cls, values: list[float], period: int) -> float:
-        return cls.ema_series(values, period)[-1]
+        return TrendFeatureGenerator.ema(values, period)
 
     @staticmethod
     def moving_average_slope(series: list[float], period: int, *, exponential: bool = False) -> float:
-        if len(series) < period + 1:
-            raise ValueError("insufficient values for moving-average slope")
-        current = TechnicalAnalyst.ema(series, period) if exponential else TechnicalAnalyst.sma(series, period)
-        previous = TechnicalAnalyst.ema(series[:-1], period) if exponential else TechnicalAnalyst.sma(series[:-1], period)
-        return (current - previous) / previous if previous else 0.0
+        return TrendFeatureGenerator.moving_average_slope(series, period, exponential=exponential)
 
     @classmethod
     def crossover(cls, values: list[float], fast: int, slow: int) -> tuple[str, int]:
-        if fast >= slow or len(values) < slow:
-            raise ValueError("insufficient values for crossover")
-        states = []
-        for end in range(slow, len(values) + 1):
-            states.append(cls.sma(values[:end], fast) >= cls.sma(values[:end], slow))
-        age = 0
-        for state in reversed(states[:-1]):
-            if state == states[-1]:
-                age += 1
-            else:
-                break
-        return ("above" if states[-1] else "below", age)
+        return TrendFeatureGenerator.crossover(values, fast, slow)
 
     @staticmethod
     def roc(values: list[float], period: int) -> float:
-        if period <= 0 or len(values) <= period:
-            raise ValueError("insufficient values for ROC")
-        return (values[-1] / values[-period - 1] - 1) * 100
+        return MomentumFeatureGenerator.roc(values, period)
 
     @staticmethod
     def true_ranges(bars: list[OHLCVBar]) -> list[float]:
-        if not bars:
-            raise ValueError("bars required")
-        return [
-            bar.high - bar.low
-            if index == 0
-            else max(bar.high - bar.low, abs(bar.high - bars[index - 1].close), abs(bar.low - bars[index - 1].close))
-            for index, bar in enumerate(bars)
-        ]
+        return VolatilityFeatureGenerator.true_ranges(bars)
 
     @classmethod
     def atr(cls, bars: list[OHLCVBar], period: int) -> float:
-        ranges = cls.true_ranges(bars)
-        if period <= 0 or len(ranges) < period:
-            raise ValueError("insufficient values for ATR")
-        value = sum(ranges[:period]) / period
-        for item in ranges[period:]:
-            value = (value * (period - 1) + item) / period
-        return value
+        return VolatilityFeatureGenerator.atr(bars, period)
 
     @classmethod
     def bollinger_bands(cls, values: list[float], period: int = 20, deviations: float = 2) -> tuple[float, float, float]:
-        middle = cls.sma(values, period)
-        window = values[-period:]
-        std = sqrt(sum((value - middle) ** 2 for value in window) / period)
-        return middle - deviations * std, middle, middle + deviations * std
+        return VolatilityFeatureGenerator.bollinger_bands(values, period, deviations)
 
     @staticmethod
     def bollinger_bandwidth(lower: float, middle: float, upper: float) -> float:
-        return (upper - lower) / middle if middle else 0.0
+        return VolatilityFeatureGenerator.bollinger_bandwidth(lower, middle, upper)
 
     @staticmethod
     def obv(bars: list[OHLCVBar]) -> float:
-        if not bars:
-            raise ValueError("bars required")
-        total = 0
-        for previous, current in pairwise(bars):
-            total += current.volume if current.close > previous.close else -current.volume if current.close < previous.close else 0
-        return float(total)
+        return VolumeFeatureGenerator.obv(bars)
 
     @staticmethod
     def rolling_volume_average(bars: list[OHLCVBar], period: int) -> float:
-        if period <= 0 or len(bars) < period:
-            raise ValueError("insufficient volume values")
-        return sum(bar.volume for bar in bars[-period:]) / period
+        return VolumeFeatureGenerator.rolling_volume_average(bars, period)
 
     @classmethod
     def relative_volume(cls, bars: list[OHLCVBar], period: int) -> float:
-        average = cls.rolling_volume_average(bars, period)
-        return bars[-1].volume / average if average else 0.0
+        return VolumeFeatureGenerator.relative_volume(bars, period)
 
     @staticmethod
     def vwap(bars: list[OHLCVBar]) -> float:
-        volume = sum(bar.volume for bar in bars)
-        if not bars or not volume:
-            raise ValueError("positive aggregate volume required")
-        return sum(((bar.high + bar.low + bar.close) / 3) * bar.volume for bar in bars) / volume
+        return VolumeFeatureGenerator.vwap(bars)
 
     @staticmethod
     def rsi(values: list[float], period: int) -> float:
-        if period <= 0 or len(values) < period + 1:
-            raise ValueError("insufficient values for RSI")
-        deltas = [b - a for a, b in pairwise(values)]
-        gains = [max(x, 0.0) for x in deltas]
-        losses = [max(-x, 0.0) for x in deltas]
-        gain, loss = sum(gains[:period]) / period, sum(losses[:period]) / period
-        for g, item in zip(gains[period:], losses[period:], strict=True):
-            gain, loss = (gain * (period - 1) + g) / period, (loss * (period - 1) + item) / period
-        return 100.0 if loss == 0 else 100 - 100 / (1 + gain / loss)
+        return MomentumFeatureGenerator.rsi(values, period)
 
     @classmethod
     def macd(cls, values: list[float], fast: int, slow: int, signal: int) -> tuple[float, float, float]:
-        if fast >= slow or len(values) < slow:
-            raise ValueError("insufficient values for MACD")
-        fast_values, slow_values = cls.ema_series(values, fast), cls.ema_series(values, slow)
-        line = [a - b for a, b in zip(fast_values[slow - fast :], slow_values, strict=True)]
-        signal_value = cls.ema(line, signal) if len(line) >= signal else sum(line) / len(line)
-        return line[-1], signal_value, line[-1] - signal_value
+        return MomentumFeatureGenerator.macd(values, fast, slow, signal)
 
     def _minimum_bars(self) -> int:
         return max(
