@@ -3,6 +3,9 @@
 - Phase 6: complete technical analyst architecture (implemented).
 - Phase 6.5: Market Intelligence Feature Platform — hardened as canonical engineered-feature source (implemented).
 
+- Phase 7.5 — Analyst lifecycle consolidated, Phase 8A introduced.
+- Phase 8A — Unified Research Data Platform (implemented: deterministic, offline, point-in-time-safe data layer).
+
 1. Phase 1 - safe modular foundation and in-memory paper simulation.
 2. Phase 2 - validated market-data ingestion (complete: bounded deterministic mock, isolated yfinance adapter, policy-aware cache, strict UTC/provenance contracts, safe errors, and read-only API).
 3. Phase 3 - offline Kronos integration and evaluation (complete: deterministic SMA crossover forecast over Phase 2 market data, cached predictions, read-only Kronos API endpoints, provenance fields on KronosPrediction).
@@ -27,4 +30,8 @@ Market Intelligence Feature Platform: deterministic, immutable feature snapshots
 Implemented: strict point-in-time financial models, deterministic normalization and formula services, shared evidence generation, contradiction-aware synthesis, generic API registration, offline CLI JSON input, safety checks, and documentation. See [FUNDAMENTAL_ANALYST.md](FUNDAMENTAL_ANALYST.md) and [PHASE_07_FUNDAMENTAL_ANALYST.md](phases/PHASE_07_FUNDAMENTAL_ANALYST.md).
 # Phase 7.5 — complete
 
-The analyst platform is consolidated behind `BaseAnalyst`, with one freshness, validation, confidence, and trace implementation. Mock, Technical, and Fundamental analysts retain backward-compatible APIs and now all emit provenance traces. Phase 8 is not part of this work.
+The analyst platform is consolidated behind `BaseAnalyst`, with one freshness, validation, confidence, and trace implementation. Mock, Technical, and Fundamental analysts retain backward-compatible APIs and now all emit provenance traces.
+
+# Phase 8A — Unified Research Data Platform
+
+Implemented as a deterministic, offline, read-only data layer that normalizes, versions, and serves research data from market, fundamental, macro, calendar, and news/event domains behind a single point-in-time-safe contract. Exposes `GET /data-platform/health`, `GET /data-platform/sources`, `GET /data-platform/domains`, `GET /data-platform/series`, `GET /data-platform/calendar`, and `POST /data-platform/snapshot`. CLI: `python -m app.cli.data_platform`. See [DATA_PLATFORM.md](DATA_PLATFORM.md) and [PHASE_08A_UNIFIED_DATA_PLATFORM.md](phases/PHASE_08A_UNIFIED_DATA_PLATFORM.md). Phase 8B is not part of this work.

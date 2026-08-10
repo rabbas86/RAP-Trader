@@ -6,4 +6,9 @@ The lifecycle is: Validation → Normalization → Analysis → Evidence → Con
 
 `DataFreshnessService`, `EvidenceValidationService`, and `ConfidenceAssessmentService` each have one canonical implementation. Imports from `app.services.analyst.service` remain supported. Every analysis result, including insufficient evidence, has a retrievable `AnalysisTrace` DAG through `trace_for(opinion_id)`.
 
-The platform is offline, deterministic, research-only, never decision-ready, and unsuitable for live trading. It does not route decisions or invoke execution, portfolio, risk, committee, network, or model services.
+The platform is offline, deterministic, research-only, never decision-ready, and
+unsuitable for live trading. It does not route decisions or invoke execution,
+portfolio, risk, committee, network, or model services. Future analysts can consume
+`ResearchDataSnapshot` from the Phase 8A Unified Research Data Platform
+(see `docs/DATA_PLATFORM.md`) as an additional point-in-time-safe data source,
+without duplicating data-platform normalization or quality logic.

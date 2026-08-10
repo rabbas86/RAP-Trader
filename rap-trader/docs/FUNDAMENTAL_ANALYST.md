@@ -117,3 +117,11 @@ model validator — these flags cannot be overridden. The analyst never creates
 `OrderRequest`, calculates position quantities, allocates capital, or invokes
 RiskEngine, PortfolioManager, InvestmentCommittee, Chairman, or any broker/execution
 service.
+
+## Data Platform integration (Phase 8A)
+
+The Unified Research Data Platform (Phase 8A) provides normalized, point-in-time-safe
+data records that can feed the `CompanyFundamentals` input contract. See
+`docs/DATA_PLATFORM.md`. The fundamental analyst does not duplicate any data-platform
+normalization or quality logic — it consumes caller-supplied financial statements
+that may originate from the data platform's `FundamentalsAdapter`.

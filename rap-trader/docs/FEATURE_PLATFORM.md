@@ -188,4 +188,8 @@ The fundamental analyst is a standalone analyst that does **not** consume MIFP
 `CompanyFundamentals` input contract and produces Phase 5 evidence/opinion
 output. Market-derived inputs (price, market cap, enterprise value) may be
 supplied directly in the fundamentals JSON; they are never fetched from MIFP or
-any external source. See `docs/FUNDAMENTAL_ANALYST.md`.
+any external source. Phase 8A introduces a Unified Research Data Platform that
+can supply normalized, point-in-time-safe data records (including fundamental
+filings via its `FundamentalsAdapter`) that feed the `CompanyFundamentals` input
+contract. See `docs/DATA_PLATFORM.md`. The data platform does not duplicate MIFP
+feature computation. See `docs/FUNDAMENTAL_ANALYST.md`.

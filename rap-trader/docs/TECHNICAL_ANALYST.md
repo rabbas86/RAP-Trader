@@ -77,3 +77,10 @@ Every opinion has:
 * No future features included (`available_at ≤ as_of` enforced by `FeatureSnapshot`)
 
 The analyst never emits orders, quantities, allocations, stops, or approvals.
+
+## Data Platform integration (Phase 8A)
+
+The Unified Research Data Platform (Phase 8A) provides normalized market data records
+that can supplement or replace MIFP feature inputs. See `docs/DATA_PLATFORM.md`. The
+Technical Analyst reads feature values from `FeatureSnapshot` (Phase 6.5) as its
+sole feature source — no indicator formulas are duplicated from the data platform.

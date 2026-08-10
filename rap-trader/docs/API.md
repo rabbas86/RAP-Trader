@@ -86,3 +86,30 @@ Phase 7.5 preserves these endpoints and schemas while consolidating their lifecy
 `GET /analysts/fundamental/metadata` returns analyst capabilities including `analyst_id="fundamental"`, `role="FUNDAMENTAL"`, `research_only=true`, and `suitable_for_live_trading=false`.
 
 `POST /analysts/fundamental/analyze` accepts an `AnalystRequest` whose `extra_context` contains a `fundamentals` key with a `CompanyFundamentals` JSON document. The analyst normalizes, validates, analyzes, and returns an `AnalystOpinion` with evidence grouped by category (growth, profitability, cash_flow, balance_sheet, capital_efficiency, valuation, earnings_quality, shareholder, data_quality). No market data is fetched; all inputs are caller-supplied.
+
+## Data Platform endpoints (Phase 8A)
+
+The Unified Research Data Platform provides read-only, offline, point-in-time-safe data endpoints. See [DATA_PLATFORM.md](../DATA_PLATFORM.md).
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/data-platform/health` | Health status and platform version |
+| `GET` | `/data-platform/sources` | List registered data sources |
+| `GET` | `/data-platform/domains` | List supported data domains |
+| `GET` | `/data-platform/series` | Query normalized records (domain, symbol, limit filters) |
+| `GET` | `/data-platform/calendar` | Query calendar events (start, end, event_type filters) |
+| `POST` | `/data-platform/snapshot` | Produce a point-in-time-safe `ResearchDataSnapshot` |
+
+All endpoints require no network by default, return safe structured responses, and never expose internal exceptions. The POST `/data-platform/snapshot` accepts a `SnapshotRequest` JSON body with:
+
+- `as_of` (required, ISO 8601 UTC timestamp)
+- `domains` (optional, list of `DataDomain` values)
+- `symbols` (optional, list of entity/symbol strings)
+- `series_ids` (optional, list of series identifiers)
+- `max_records` (optional, positive integer)
+- `source_preferences` (optional, list of provider names)
+- `allow_partial` (optional, default `false`)
+- `research_only` (default `true`)
+- `suitable_for_live_trading` (default `false`)
+
+Snapshots are research-only (`research_only=true`, `suitable_for_live_trading=false`). Requests with `suitable_for_live_trading=true` are rejected at validation time.

@@ -41,3 +41,15 @@ The fundamental analyst is an offline research component. Caller-supplied filing
 # Phase 7.5 consolidation boundary
 
 The shared analyst lifecycle remains deterministic, offline, research-only, not decision-ready, and unsuitable for live trading. Consolidation adds no broker, execution, portfolio, risk-engine, investment-committee, chairman, live-trading, network, or LLM dependency. Traces record provenance only and cannot trigger actions.
+
+# Phase 8A safety — Unified Research Data Platform
+
+The Unified Research Data Platform (Phase 8A) is research-only and does not connect to any execution, risk, portfolio, broker, committee, or Chairman service.
+
+- **No broker or execution.** The data platform source tree contains no imports of `Broker`, `PaperBroker`, `ExecutionService`, `OrderRequest`, `RiskEngine`, `PortfolioManager`, `InvestmentCommittee`, or `Chairman`. Tests assert this with a forbidden-token scan.
+- **No LLM or model download.** The data platform uses no neural models, LLMs, or network calls. All adapters are offline-capable by default.
+- **No network.** No `requests.get`, `urllib`, or `httpx` calls in any data-platform source file.
+- **No credentials.** Metadata validators reject keys matching `password`, `token`, `api_key`, `secret`, or `credential`, and reject absolute filesystem paths. No API keys, tokens, passwords, or secrets are stored or transmitted.
+- **No trading decisions.** All outputs carry `research_only=True` and `suitable_for_live_trading=False`. `SnapshotRequest` and `NormalizedDataRecord` both reject `suitable_for_live_trading=True` at validation time.
+- **No analyst opinions.** The platform provides normalized data, not analysis. No Macro Analyst opinions, no bullish/bearish direction, no sentiment, and no News Analyst output.
+- **Point-in-time enforcement.** The snapshot model validator rejects any record whose `available_at` is after the snapshot `as_of`. The revision engine rejects future revisions. Store queries filter by `available_at <= as_of`.

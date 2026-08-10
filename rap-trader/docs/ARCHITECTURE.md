@@ -62,3 +62,39 @@ The fundamental analyst does **not** consume MIFP `FeatureSnapshot` — accounti
 # Phase 7.5 analyst lifecycle
 
 The canonical analyst framework lives in `app/services/analyst/framework/`. `BaseAnalyst` coordinates Validation → Normalization → Analysis → Evidence → Confidence → Opinion → Trace → Output, while specialist packages own only their domain calculations and evidence semantics. Shared services are re-exported through the legacy analyst service module.
+
+# Phase 7.5 — Phase 8A boundary: Unified Research Data Platform
+
+The Unified Research Data Platform (Phase 8A) is a deterministic, offline, read-only data layer that normalizes, versions, and serves research data from market, fundamental, macro, calendar, and news/event domains. It sits between Phase 7.5 analysts and Phase 6.5 MIFP:
+
+```
+Caller-supplied raw data
+       │
+       ▼
+  Adapters (market, fundamentals, macro, events, news, mock)
+       │  — normalize, fingerprint, assign source identity
+       ▼
+  DataNormalizationService (one canonical pass)
+       │
+       ▼
+  InMemoryDataRecordStore / JSONFileDataRecordStore
+       │  — query by domain, entity, series, period, as_of, revision
+       ▼
+  DataQualityService + PointInTimeRevisionService
+       │  — quality scoring, revision lineage, no-lookahead enforcement
+       ▼
+  ResearchDataSnapshotService → ResearchDataSnapshot
+       │  — immutable, deterministic, point-in-time safe
+       ▼
+  MIFP FeatureSnapshot (Phase 6.5)  OR  Phase 7.5 Analysts
+```
+
+The data platform produces `ResearchDataSnapshot` as the canonical point-in-time-safe input. MIFP (Phase 6.5) and Phase 7.5 analysts consume these snapshots. The data platform does not duplicate any MIFP feature computation and does not rewrite Technical or Fundamental analysts. It provides lightweight helpers/adapters so future analysts can consume `ResearchDataSnapshot`.
+
+Key boundaries:
+- **No data platform → analyst opinion.** The platform provides data, not analysis.
+- **No data platform → MIFP feature computation.** The snapshot is the input; MIFP computes features.
+- **No data platform → broker/execution/risk/portfolio.** Read-only, offline, research-only.
+- **No data platform → network/LLM/model download.** All adapters are offline-capable by default.
+
+See `docs/DATA_PLATFORM.md` and `docs/phases/PHASE_08A_UNIFIED_DATA_PLATFORM.md`.

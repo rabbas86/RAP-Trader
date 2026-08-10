@@ -73,3 +73,16 @@ mypy app --strict
 ## Safety limitations
 
 Predictions and decisions are placeholders, not investment advice. Market data may be delayed, incomplete, synthetic, or adjusted and is never an execution quote. Kronos predictions are deterministic offline signals and are not suitable for live trading. Deterministic risk controls remain mandatory and no decision model can override them. The Market Intelligence Feature Platform and Technical Analyst are research-only with no broker, execution, or live-trading integration; all opinions carry `research_only=True`, `suitable_for_live_trading=False`, and `decision_ready=False`. See `docs/SAFETY.md`.
+
+## Data platform (Phase 8A)
+
+The Unified Research Data Platform is a deterministic, offline, read-only data layer
+that normalizes, versions, and serves research data from market, fundamental, macro,
+calendar, and news/event domains behind a single point-in-time-safe contract. All data
+platform outputs carry `research_only=True` and `suitable_for_live_trading=False`.
+
+Read-only endpoints are `GET /data-platform/health`, `GET /data-platform/sources`,
+`GET /data-platform/domains`, `GET /data-platform/series`,
+`GET /data-platform/calendar`, and `POST /data-platform/snapshot`. The CLI is
+`python -m app.cli.data_platform`. See [Data Platform docs](docs/DATA_PLATFORM.md) and
+[Phase 8A plan](docs/phases/PHASE_08A_UNIFIED_DATA_PLATFORM.md).
