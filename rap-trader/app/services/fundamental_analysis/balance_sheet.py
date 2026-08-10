@@ -1,60 +1,125 @@
-"""Liquidity and leverage analysis."""
+"""Balance sheet strength: liquidity, leverage, and solvency ratios."""
+
+from __future__ import annotations
 
 from app.domain.models.analyst import EvidenceItem
 from app.domain.models.fundamental import FundamentalMetric
-from app.services.fundamental_analysis.common import metric, ratio
+from app.services.fundamental_analysis.common import metric
 from app.services.fundamental_analysis.normalization import NormalizedFinancialStatements
 
 
 class BalanceSheetAnalysisService:
     def analyze(self, data: NormalizedFinancialStatements) -> tuple[list[FundamentalMetric], list[EvidenceItem]]:
+        metrics: list[FundamentalMetric] = []
         if not data.balance_sheets:
-            return [], []
-        b = data.balance_sheets[-1]
-        income = data.income_statements[-1] if data.income_statements else None
-        ebitda = income.ebitda if income else None
-        ebit = income.ebit if income else None
-        values = [
-            ("current_ratio", b.current_assets, b.current_liabilities),
-            ("quick_ratio", b.current_assets - b.inventory, b.current_liabilities),
-            ("cash_ratio", b.cash_and_equivalents + b.short_term_investments, b.current_liabilities),
-            ("debt_to_equity", b.total_debt, b.shareholders_equity),
-            ("debt_to_assets", b.total_debt, b.total_assets),
-            ("net_debt", b.total_debt - b.cash_and_equivalents - b.short_term_investments, 1.0),
-            ("net_debt_to_ebitda", b.total_debt - b.cash_and_equivalents - b.short_term_investments, ebitda),
-            ("interest_coverage", ebit, income.interest_expense if income else None),
-            ("goodwill_intangibles_concentration", b.goodwill + b.intangible_assets, b.total_assets),
-            ("working_capital", b.current_assets - b.current_liabilities, 1.0),
-        ]
-        result: list[FundamentalMetric] = []
-        for name, numerator, denominator in values:
-            warnings = []
-            if b.shareholders_equity < 0:
-                warnings.append("negative shareholders equity")
-            if ebitda is not None and ebitda < 0:
-                warnings.append("negative EBITDA makes leverage ratios unsuitable")
-            value = numerator if name in {"net_debt", "working_capital"} else ratio(numerator, denominator)
-            item = metric(
-                name,
+            return metrics, []
+
+        bs = data.balance_sheets[-1]
+        warnings: list[str] = []
+
+        if bs.shareholders_equity < 0:
+            warnings.append("negative shareholders' equity")
+        if bs.total_liabilities > bs.total_assets:
+            warnings.append("liabilities exceed assets")
+
+        # Liquidity ratios
+        if bs.current_liabilities > 0:
+            current_ratio = bs.current_assets / bs.current_liabilities
+            if m := metric(
+                "current_ratio", "balance_sheet", current_ratio, bs.period.period_end, bs.period.available_at, warnings=warnings.copy()
+            ):
+                metrics.append(m)
+        else:
+            warnings.append("zero current liabilities; liquidity ratios suppressed")
+
+        liquid_assets = bs.cash_and_equivalents + bs.short_term_investments + bs.accounts_receivable
+        if bs.current_liabilities > 0:
+            quick_ratio = liquid_assets / bs.current_liabilities
+            if m := metric(
+                "quick_ratio", "balance_sheet", quick_ratio, bs.period.period_end, bs.period.available_at, warnings=warnings.copy()
+            ):
+                metrics.append(m)
+            cash_ratio = bs.cash_and_equivalents / bs.current_liabilities
+            if m := metric(
+                "cash_ratio", "balance_sheet", cash_ratio, bs.period.period_end, bs.period.available_at, warnings=warnings.copy()
+            ):
+                metrics.append(m)
+
+        # Leverage ratios
+        if bs.shareholders_equity > 0:
+            debt_to_equity = bs.total_debt / bs.shareholders_equity
+            if m := metric(
+                "debt_to_equity", "balance_sheet", debt_to_equity, bs.period.period_end, bs.period.available_at, warnings=warnings.copy()
+            ):
+                metrics.append(m)
+        else:
+            warnings.append("zero or negative shareholders' equity; debt/equity suppressed")
+
+        if bs.total_assets > 0:
+            debt_to_assets = bs.total_debt / bs.total_assets
+            if m := metric(
+                "debt_to_assets", "balance_sheet", debt_to_assets, bs.period.period_end, bs.period.available_at, warnings=warnings.copy()
+            ):
+                metrics.append(m)
+
+        # Net debt
+        net_debt = bs.total_debt - bs.cash_and_equivalents
+        if m := metric(
+            "net_debt", "balance_sheet", net_debt, bs.period.period_end, bs.period.available_at, units="currency", warnings=warnings.copy()
+        ):
+            metrics.append(m)
+
+        # Net debt / EBITDA
+        if net_debt >= 0 and len(data.income_statements) > 0:
+            income = data.income_statements[-1]
+            if income.ebitda and income.ebitda > 0:
+                ndebitda = net_debt / income.ebitda
+                if m := metric(
+                    "net_debt_to_ebitda", "balance_sheet", ndebitda, bs.period.period_end, bs.period.available_at, warnings=warnings.copy()
+                ):
+                    metrics.append(m)
+
+        # Intangible asset concentration
+        if bs.total_assets > 0:
+            intangibles = bs.goodwill + bs.intangible_assets
+            concentration = intangibles / bs.total_assets
+            if m := metric(
+                "goodwill_intangibles_concentration",
                 "balance_sheet",
-                value,
-                b.period.period_end,
-                b.period.available_at,
-                warnings=warnings,
-                units="currency" if name in {"net_debt", "working_capital"} else "ratio",
-            )
-            if item:
-                result.append(item)
+                concentration,
+                bs.period.period_end,
+                bs.period.available_at,
+                warnings=warnings.copy(),
+            ):
+                metrics.append(m)
+
+        # Working capital
+        working_capital = bs.current_assets - bs.current_liabilities
+        if m := metric(
+            "working_capital",
+            "balance_sheet",
+            working_capital,
+            bs.period.period_end,
+            bs.period.available_at,
+            units="currency",
+            warnings=warnings.copy(),
+        ):
+            metrics.append(m)
+
+        # Working capital trend
         if len(data.balance_sheets) >= 2:
-            prior = data.balance_sheets[-2]
-            item = metric(
+            prev = data.balance_sheets[-2]
+            prev_wc = prev.current_assets - prev.current_liabilities
+            wc_trend = working_capital - prev_wc
+            if m := metric(
                 "working_capital_trend",
                 "balance_sheet",
-                (b.current_assets - b.current_liabilities) - (prior.current_assets - prior.current_liabilities),
-                b.period.period_end,
-                b.period.available_at,
+                wc_trend,
+                bs.period.period_end,
+                bs.period.available_at,
                 units="currency",
-            )
-            if item:
-                result.append(item)
-        return result, []
+                warnings=warnings.copy(),
+            ):
+                metrics.append(m)
+
+        return metrics, []

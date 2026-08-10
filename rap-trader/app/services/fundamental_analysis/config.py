@@ -1,28 +1,47 @@
-"""Configuration for the offline fundamental analyst."""
+"""Configuration for the Phase 7 Fundamental Analyst."""
+
+from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import ClassVar
 
 from app.domain.models.analyst import AnalystRole
+
+# ROIC formula assumptions documented as a module-level constant.
+# NOPAT = EBIT * (1 - tax rate), where tax rate = tax_expense / pretax_income.
+# Invested Capital = total_assets - current_liabilities - accounts_payable + cash_and_equivalents.
+# When EBIT, tax expense, current liabilities, or balance-sheet components are missing,
+# ROIC is marked unavailable rather than approximated.
+ROIC_FORMULA_ASSUMPTIONS: tuple[str, ...] = (
+    "NOPAT = EBIT * (1 - tax rate)",
+    "tax rate = tax_expense / pretax_income",
+    "Invested Capital = total_assets - current_liabilities - accounts_payable + cash_and_equivalents",
+    "When EBIT, tax expense, or balance-sheet components are missing, ROIC is unavailable",
+)
+
+ROIC_INCOMPLETE_INPUTS: tuple[str, ...] = (
+    "EBIT is null",
+    "pretax_income <= 0 (tax rate indeterminate)",
+    "current_liabilities is null",
+    "accounts_payable is null",
+    "cash_and_equivalents is null",
+)
 
 
 @dataclass(frozen=True)
 class FundamentalAnalystConfig:
+    """Configuration for the deterministic, research-only fundamental analyst."""
+
     analyst_id: str = "fundamental"
     role: AnalystRole = AnalystRole.FUNDAMENTAL
-    uncalibrated_confidence_cap: float = 0.65
+    research_only: bool = True
+    suitable_for_live_trading: bool = False
     stale_input_allowed: bool = False
-    base_confidence: float = 0.6
-    min_quarterly_periods: int = 4
-    min_annual_periods: int = 3
-    ROIC_FORMULA_ASSUMPTIONS: ClassVar[str] = (
-        "NOPAT = EBIT * (1 - tax_rate); invested capital = total assets - current liabilities "
-        "- non-interest-bearing current liabilities + cash adjustment; accounts payable proxies "
-        "non-interest-bearing current liabilities and cash adjustment is cash and equivalents."
-    )
+    min_lookahead_days: int = 0  # reject any future-dated filings
 
-    def __post_init__(self) -> None:
-        if not self.analyst_id or not 0 <= self.uncalibrated_confidence_cap <= 1 or not 0 <= self.base_confidence <= 1:
-            raise ValueError("invalid fundamental analyst configuration")
-        if self.min_quarterly_periods < 2 or self.min_annual_periods < 2:
-            raise ValueError("minimum period counts must be at least two")
+    @property
+    def roic_formula_assumptions(self) -> tuple[str, ...]:
+        return ROIC_FORMULA_ASSUMPTIONS
+
+    @property
+    def roic_incomplete_inputs(self) -> tuple[str, ...]:
+        return ROIC_INCOMPLETE_INPUTS
