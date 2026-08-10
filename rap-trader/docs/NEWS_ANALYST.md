@@ -310,3 +310,6 @@ python -m app.cli.analyst --analyst news --ticker AAPL \\
 | `lifecycle.py` | `EventLifecycleService` | Cancelled/superseded/resolved/archived handling |
 | `synthesis.py` | `NewsOpinionSynthesisService` | Combine classified events into direction + confidence |
 | `service.py` | `NewsAnalyst` | Orchestrates all services into `AnalystOpinion` |
+# Portfolio contribution
+
+Point-in-time news opinions can contribute to Phase 10 conviction. Future opinions are rejected and stale opinions are deterministically discounted according to portfolio configuration.

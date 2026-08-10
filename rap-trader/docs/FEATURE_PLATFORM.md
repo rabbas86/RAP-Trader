@@ -193,3 +193,6 @@ can supply normalized, point-in-time-safe data records (including fundamental
 filings via its `FundamentalsAdapter`) that feed the `CompanyFundamentals` input
 contract. See `docs/DATA_PLATFORM.md`. The data platform does not duplicate MIFP
 feature computation. See `docs/FUNDAMENTAL_ANALYST.md`.
+# Phase 10 integration
+
+The portfolio manager does not fetch or generate features. Analyst opinions may be based on feature snapshots, but Phase 10 consumes only the frozen opinion contract and records its provenance.

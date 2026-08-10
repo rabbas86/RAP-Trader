@@ -84,3 +84,6 @@ The Unified Research Data Platform (Phase 8A) provides normalized market data re
 that can supplement or replace MIFP feature inputs. See `docs/DATA_PLATFORM.md`. The
 Technical Analyst reads feature values from `FeatureSnapshot` (Phase 6.5) as its
 sole feature source — no indicator formulas are duplicated from the data platform.
+# Portfolio contribution
+
+Technical `AnalystOpinion` outputs can contribute to Phase 10 conviction. Direction, confidence, freshness, and evidence quality are mapped deterministically; the portfolio manager never interprets them as orders.

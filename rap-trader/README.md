@@ -100,3 +100,6 @@ Endpoints: `GET /analysts/macro/health`, `GET /analysts/macro/metadata`,
 `POST /analysts/macro/analyze`. CLI: `python -m app.cli.analyst --analyst macro`.
 See [Macro Economist docs](docs/MACRO_ECONOMIST.md) and
 [Phase 8B plan](docs/phases/PHASE_08B_MACRO_ECONOMIST.md).
+# Phase 10 portfolio research
+
+RAP-Trader includes a deterministic, offline, research-only portfolio manager. It produces constrained `PortfolioProposal` weights—never orders or execution instructions. See [Portfolio Manager](docs/PORTFOLIO_MANAGER.md).

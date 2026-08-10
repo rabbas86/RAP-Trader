@@ -121,3 +121,6 @@ All endpoints require no network by default, return safe structured responses, a
 - `suitable_for_live_trading` (default `false`)
 
 Snapshots are research-only (`research_only=true`, `suitable_for_live_trading=false`). Requests with `suitable_for_live_trading=true` are rejected at validation time.
+# Portfolio API (Phase 10)
+
+`GET /portfolio/health` and `/metadata` describe the offline research component. `POST /portfolio/validate` safely validates a proposal request; `POST /portfolio/propose` returns research weights and full provenance. No execute, rebalance, or order route exists. See [Portfolio Manager](PORTFOLIO_MANAGER.md).

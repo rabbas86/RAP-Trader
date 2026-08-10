@@ -335,3 +335,6 @@ provides lightweight helpers/adapters so future analysts can consume
 - Calendar events use a simple Gregorian business-day model (no country-specific
   holiday calendars).
 - No automatic data fetching — callers must supply raw data through adapters.
+# Phase 10 integration
+
+Portfolio correlation accepts supplied `HistoricalBarsResult` values and applies a strict point-in-time cutoff. It neither invokes a data provider nor fabricates correlations when aligned samples are insufficient.

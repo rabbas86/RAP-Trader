@@ -41,3 +41,6 @@ Implemented as a deterministic, offline, research-only specialist analyst. Consu
 # Phase 9 — News Analyst (implemented)
 
 Deterministic, offline, research-only news analyst consuming Phase 8A data platform records. See [NEWS_ANALYST.md](NEWS_ANALYST.md) and [PHASE_09_NEWS_ANALYST.md](phases/PHASE_09_NEWS_ANALYST.md).
+# Phase 10 — Portfolio Manager
+
+Implemented: deterministic offline opinion aggregation, conviction scoring, constrained research weights, turnover limits, point-in-time correlation, diversification, provenance, trace, API, and CLI. See [phase record](phases/PHASE_10_PORTFOLIO_MANAGER.md).

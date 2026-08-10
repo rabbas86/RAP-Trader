@@ -65,3 +65,6 @@ The Macro Economist (`app/services/macro_analysis/`) is a deterministic, offline
 - **Point-in-time enforcement.** The Macro Analyst consumes only `ResearchDataSnapshot` records whose `available_at ≤ as_of`, enforced by the Phase 8A revision engine. It never queries raw providers directly and never uses latest-known revisions.
 - **Freshness enforcement.** `EvidenceValidationService` rejects observations older than `stale_threshold` (default 7 days) with an `EXPIRED_EVIDENCE` warning.
 - **Data sparsity safety.** Snapshots with fewer than 2 macro series produce `INSUFFICIENT_EVIDENCE` rather than a forced directional call.
+# Portfolio-manager safety
+
+Phase 10 emits research weights only. Safety flags cannot be enabled, future inputs are rejected, and no portfolio module imports or calls broker, paper-broker, execution, order-request, or risk-engine facilities. It performs no network, LLM, or model-download activity.

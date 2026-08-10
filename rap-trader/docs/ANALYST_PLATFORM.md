@@ -25,3 +25,6 @@ without duplicating data-platform normalization or quality logic.
 The Macro Analyst (`app/services/macro_analysis/`) is a deterministic, offline,
 research-only specialist that classifies the macro-economic regime from a
 `ResearchDataSnapshot`. See `docs/MACRO_ECONOMIST.md`.
+# Portfolio-manager consumer
+
+Phase 10 is a downstream, research-only consumer of `AnalystOpinion`. It preserves accepted opinion IDs in proposal provenance and the construction trace; insufficient-evidence opinions are ignored and future or duplicate opinions are rejected.

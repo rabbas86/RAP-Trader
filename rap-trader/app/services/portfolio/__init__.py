@@ -1,3 +1,5 @@
-from app.services.portfolio.service import PortfolioService
+"""Portfolio manager package."""
 
-__all__ = ["PortfolioService"]
+from app.services.portfolio.service import PortfolioManagerService, PortfolioProposalRequest
+
+__all__ = ["PortfolioManagerService", "PortfolioProposalRequest"]

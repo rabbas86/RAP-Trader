@@ -270,3 +270,6 @@ python -m app.cli.analyst \
 All thresholds are in `MacroAnalystConfig` (`app/services/macro_analysis/config.py`)
 as frozen dataclass fields with documented defaults. Adjusting a threshold
 requires code review and is auditable via git history.
+# Portfolio contribution
+
+Macro opinions can contribute to Phase 10 conviction when they cover an explicit portfolio symbol. Mixed or neutral directions have zero signed orientation and do not become order instructions.
