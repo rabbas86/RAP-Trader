@@ -4,7 +4,7 @@ from uuid import uuid4
 from fastapi import FastAPI, Request
 
 from app import __version__
-from app.api.routes import analyst, backtests, features, health, kronos, market_data, system
+from app.api.routes import analyst, backtests, data_platform, features, health, kronos, market_data, system
 from app.config import get_settings
 from app.logging_config import configure_logging
 
@@ -20,6 +20,7 @@ app.include_router(kronos.router)
 app.include_router(backtests.router)
 app.include_router(analyst.router)
 app.include_router(features.router)
+app.include_router(data_platform.router)
 
 
 @app.middleware("http")
