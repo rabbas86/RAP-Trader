@@ -6,6 +6,7 @@ import argparse
 import json
 from collections.abc import Sequence
 from datetime import UTC, datetime
+from pathlib import Path
 
 from app.domain.models.analyst import AnalystRequest
 from app.services.analyst import AnalystService
@@ -24,6 +25,7 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--as-json", action="store_true")
     result.add_argument("--asset-class", default="equity")
     result.add_argument("--input-json", help="Optional JSON object merged into the analyst request")
+    result.add_argument("--input-fundamentals", help="Path to a CompanyFundamentals JSON document")
     return result
 
 
@@ -32,6 +34,12 @@ def main(argv: Sequence[str] | None = None) -> int:
     as_of = datetime.fromisoformat(args.as_of) if args.as_of else datetime.now(UTC)
     analyst_id = "technical" if args.analyst_id == "technical-analyst" else args.analyst_id
     supplied = json.loads(args.input_json) if args.input_json else {}
+    extra_context = {"start": args.start, "end": args.end, **supplied.get("extra_context", {})}
+    if analyst_id == "fundamental":
+        if not args.input_fundamentals:
+            result = parser()
+            result.error("--input-fundamentals is required for the fundamental analyst")
+        extra_context["fundamentals"] = json.loads(Path(args.input_fundamentals).read_text(encoding="utf-8"))
     request = AnalystRequest(
         analyst_id=analyst_id,
         ticker=args.ticker,
@@ -40,7 +48,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         lookback=args.lookback,
         horizon=args.horizon,
         asset_class=args.asset_class,
-        extra_context={"start": args.start, "end": args.end, **supplied.get("extra_context", {})},
+        extra_context=extra_context,
     )
     opinion = AnalystService().analyze(request)
     if args.as_json:

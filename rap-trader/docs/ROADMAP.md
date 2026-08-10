@@ -22,3 +22,6 @@ Technical Analyst specialist intelligence begins. Consumes historical market dat
 # Phase 6.5
 
 Market Intelligence Feature Platform: deterministic, immutable feature snapshots with full lineage, versioned schema, cache-safe identity, and no-lookahead guarantees. The Technical Analyst reads feature values from `FeatureSnapshot` rather than independently recalculating indicators.
+# Phase 7 — Fundamental Analyst
+
+Implemented: strict point-in-time financial models, deterministic normalization and formula services, shared evidence generation, contradiction-aware synthesis, generic API registration, offline CLI JSON input, safety checks, and documentation. See [PHASE_07_FUNDAMENTAL_ANALYST.md](PHASE_07_FUNDAMENTAL_ANALYST.md).

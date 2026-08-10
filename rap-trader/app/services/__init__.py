@@ -13,6 +13,7 @@ from app.services.analyst import (
     OpinionAggregationService,
     OpinionStore,
 )
+from app.services.fundamental_analysis import FundamentalAnalyst, FundamentalAnalystConfig
 
 __all__ = [
     "Analyst",
@@ -21,6 +22,8 @@ __all__ = [
     "ConfidenceAssessmentService",
     "DataFreshnessService",
     "EvidenceValidationService",
+    "FundamentalAnalyst",
+    "FundamentalAnalystConfig",
     "InMemoryAnalystOpinionStore",
     "JSONFileAnalystOpinionStore",
     "MockAnalyst",

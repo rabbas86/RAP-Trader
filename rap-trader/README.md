@@ -1,6 +1,6 @@
 # RAP Trader
 
-Phase 6 adds the deterministic, research-only `technical` analyst, consuming features from the Phase 6.5 Market Intelligence Feature Platform (MIFP). See [Technical Analyst](docs/TECHNICAL_ANALYST.md) and [Feature Platform](docs/FEATURE_PLATFORM.md).
+Phase 7 adds the deterministic, offline, research-only `fundamental` analyst for caller-supplied point-in-time financial statements. Phase 6 provides the `technical` analyst, consuming features from the Phase 6.5 Market Intelligence Feature Platform (MIFP). See [Fundamental Analyst](docs/PHASE_07_FUNDAMENTAL_ANALYST.md), [Technical Analyst](docs/TECHNICAL_ANALYST.md), and [Feature Platform](docs/FEATURE_PLATFORM.md).
 
 Phase 3 adds deterministic offline Kronos forecasting over the Phase 2 market-data boundary. Live trading remains disabled, no real-broker adapter or order API exists, and forecasts are not investment advice.
 
@@ -35,7 +35,7 @@ Read-only endpoints are `GET /features/health`, `GET /features/categories`, and 
 
 Phase 5 provides strict, research-only analyst opinions through `GET /analysts`, analyst health and metadata routes, `POST /analysts/{analyst_id}/analyze`, descriptive aggregation, and stored-opinion retrieval. The default analyst is deterministic and offline. Analysts cannot create trades; all outputs are unsuitable for live trading and not decision-ready. Confidence is not certainty.
 
-This phase defines contracts, not specialist intelligence. Technical Analyst starts in Phase 6; Risk Officer, Investment Committee, and Chairman remain future phases. See [the analyst framework](docs/ANALYST_FRAMEWORK.md).
+The shared framework remains descriptive and research-only. Technical analysis is implemented in Phase 6 and point-in-time fundamental analysis in Phase 7; later decision roles remain outside this phase. See [the analyst framework](docs/ANALYST_FRAMEWORK.md).
 
 ## Backtesting (Phase 4)
 
