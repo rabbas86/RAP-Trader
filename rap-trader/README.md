@@ -1,6 +1,6 @@
 # RAP Trader
 
-Phase 6 adds the deterministic, research-only `technical` analyst. See [Technical Analyst](docs/TECHNICAL_ANALYST.md).
+Phase 6 adds the deterministic, research-only `technical` analyst, consuming features from the Phase 6.5 Market Intelligence Feature Platform (MIFP). See [Technical Analyst](docs/TECHNICAL_ANALYST.md) and [Feature Platform](docs/FEATURE_PLATFORM.md).
 
 Phase 3 adds deterministic offline Kronos forecasting over the Phase 2 market-data boundary. Live trading remains disabled, no real-broker adapter or order API exists, and forecasts are not investment advice.
 
@@ -25,6 +25,12 @@ Read-only endpoints are `GET /market-data/health`, `GET /market-data/timeframes`
 
 Adjustment policies are `raw` (reported OHLC), `split_adjusted` (split-adjusted OHLC), and `total_return_adjusted` (splits plus distributions; currently rejected). Session policies are `regular`, `extended`, and `all`; `regular` is the default. All accepted timestamps and provenance times are normalized to UTC. yfinance translates class-share symbols such as BRK.B to BRK-B.
 
+## Feature platform (Phase 6.5)
+
+The Market Intelligence Feature Platform (MIFP) is the canonical, deterministic source of engineered technical features. `FeatureService` consumes normalized bars from the Phase 2 `MarketDataProvider`, runs registered feature generators in topological (dependency) order, and produces an immutable `FeatureSnapshot` with full provenance. See [Feature Platform docs](docs/FEATURE_PLATFORM.md).
+
+Read-only endpoints are `GET /features/health`, `GET /features/categories`, and `POST /features/snapshot`. Snapshots carry `schema_version`, `platform_version`, `bars_analyzed`, per-feature provenance, `available_at`, `generated_at`, and `source_fingerprint`. No future feature may enter a historical snapshot.
+
 ## Analyst framework (Phase 5)
 
 Phase 5 provides strict, research-only analyst opinions through `GET /analysts`, analyst health and metadata routes, `POST /analysts/{analyst_id}/analyze`, descriptive aggregation, and stored-opinion retrieval. The default analyst is deterministic and offline. Analysts cannot create trades; all outputs are unsuitable for live trading and not decision-ready. Confidence is not certainty.
@@ -33,22 +39,11 @@ This phase defines contracts, not specialist intelligence. Technical Analyst sta
 
 ## Backtesting (Phase 4)
 
-Read-only endpoints are `POST /backtests/run`, `GET /backtests/providers`, `GET /backtests/{id}`,
-and `GET /backtests/{id}/summary`. Backtesting is **research-only**: it does not submit orders,
-execute trades, or invoke any broker, execution, risk, or portfolio service. Every result carries
-`research_only=True` and `suitable_for_live_trading=False`.
+Read-only endpoints are `POST /backtests/run`, `GET /backtests/providers`, `GET /backtests/{id}`, and `GET /backtests/{id}/summary`. Backtesting is **research-only**: it does not submit orders, execute trades, or invoke any broker, execution, risk, or portfolio service. Every result carries `research_only=True` and `suitable_for_live_trading=False`.
 
-The backtest runner performs deterministic walk-forward evaluation: it splits historical data into
-non-overlapping evaluation windows, each with a context period (history available to the forecast
-provider) and a target period (future bars compared against the forecast). The engine enforces hard
-no-lookahead runtime guards — forecast timestamps cannot appear in the context, must match expected
-target timestamps exactly, and no bar beyond `context_end` is ever returned by the market-data
-provider.
+The backtest runner performs deterministic walk-forward evaluation: it splits historical data into non-overlapping evaluation windows, each with a context period (history available to the forecast provider) and a target period (future bars compared against the forecast). The engine enforces hard no-lookahead runtime guards — forecast timestamps cannot appear in the context, must match expected target timestamps exactly, and no bar beyond `context_end` is ever returned by the market-data provider.
 
-Four deterministic benchmark providers are available by default: MockKronosProvider,
-SMAForecastProvider, LastValueForecastProvider, and DriftForecastProvider. The CLI
-(`python -m app.cli.backtest`) runs a bounded offline mock backtest with no server, no network,
-and no model download. See `docs/BACKTESTING.md` and `docs/phases/PHASE_04_BACKTESTING.md`.
+Four deterministic benchmark providers are available by default: MockKronosProvider, SMAForecastProvider, LastValueForecastProvider, and DriftForecastProvider. The CLI (`python -m app.cli.backtest`) runs a bounded offline mock backtest with no server, no network, and no model download. See `docs/BACKTESTING.md` and `docs/phases/PHASE_04_BACKTESTING.md`.
 
 ## Kronos offline forecasting
 
@@ -77,4 +72,4 @@ mypy app --strict
 
 ## Safety limitations
 
-Predictions and decisions are placeholders, not investment advice. Market data may be delayed, incomplete, synthetic, or adjusted and is never an execution quote. Kronos predictions are deterministic offline signals and are not suitable for live trading. Deterministic risk controls remain mandatory and no decision model can override them. See `docs/SAFETY.md`.
+Predictions and decisions are placeholders, not investment advice. Market data may be delayed, incomplete, synthetic, or adjusted and is never an execution quote. Kronos predictions are deterministic offline signals and are not suitable for live trading. Deterministic risk controls remain mandatory and no decision model can override them. The Market Intelligence Feature Platform and Technical Analyst are research-only with no broker, execution, or live-trading integration; all opinions carry `research_only=True`, `suitable_for_live_trading=False`, and `decision_ready=False`. See `docs/SAFETY.md`.

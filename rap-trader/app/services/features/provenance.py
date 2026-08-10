@@ -8,6 +8,7 @@ from datetime import datetime
 
 from app.domain.models.features import FeatureMetadata, FeatureProvenance
 from app.domain.models.market_data import HistoricalBarsResult
+from app.services.features.versioning import FEATURE_SCHEMA_VERSION, PLATFORM_VERSION
 
 
 def input_fingerprint(result: HistoricalBarsResult, configuration: tuple[tuple[str, str], ...]) -> str:
@@ -34,7 +35,9 @@ def build_provenance(
     versions = tuple(sorted((str(item.feature_id), item.version) for item in metadata))
     return FeatureProvenance(
         source_data=f"{result.provider}:{result.symbol}:{result.timeframe}:{result.actual_start.isoformat()}:{result.actual_end.isoformat()}",
-        generator_version="mifp-6.5.0",
+        generator_version=PLATFORM_VERSION,
+        feature_schema_version=FEATURE_SCHEMA_VERSION,
+        platform_version=PLATFORM_VERSION,
         feature_versions=versions,
         source_retrieved_at=result.retrieved_at,
         generated_at=generated_at,

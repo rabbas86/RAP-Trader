@@ -1,4 +1,11 @@
-"""Deterministic, causal, research-only technical analyst."""
+"""Deterministic, causal, research-only technical analyst.
+
+Phase 6.5 hardening: the normal analysis path now consumes a
+``FeatureSnapshot`` produced by the Market Intelligence Feature Platform
+(FeatureService) rather than re-invoking feature generators directly.
+Indicator formulas are never duplicated — they live exclusively in the
+feature generators, and the analyst reads their deterministic outputs.
+"""
 
 from __future__ import annotations
 
@@ -29,16 +36,22 @@ from app.domain.models.analyst import (
     TraceNode,
     validate_trace,
 )
+from app.domain.models.features import FeatureError, FeatureSnapshot, FeatureSnapshotRequest
 from app.domain.models.market_data import HistoricalBarsRequest, MarketDataError, OHLCVBar, Symbol, Timeframe, _require_aware_utc
-from app.domain.models.technical import TechnicalAnalysisSnapshot, TechnicalIndicatorValue
+from app.domain.models.technical import (
+    MarketStructureState,
+    SwingPoint,
+    TechnicalAnalysisSnapshot,
+    TechnicalIndicatorValue,
+    TechnicalLevel,
+)
 from app.services.analyst.service import Analyst, ConfidenceAssessmentService, DataFreshnessService, EvidenceValidationService
+from app.services.features import FeatureService
 from app.services.features.generators.momentum import MomentumFeatureGenerator
 from app.services.features.generators.trend import TrendFeatureGenerator
 from app.services.features.generators.volatility import VolatilityFeatureGenerator
 from app.services.features.generators.volume import VolumeFeatureGenerator
 from app.services.market_data import MarketDataProvider, MockMarketDataProvider, cache_key_builder
-from app.services.technical_analysis.levels import clustered_levels
-from app.services.technical_analysis.structure import classify_structure, confirmed_swings
 from app.services.technical_analysis.synthesis import TechnicalEvidenceSynthesizer
 
 
@@ -92,9 +105,18 @@ class TechnicalAnalyst(Analyst):
         "1d": timedelta(days=1),
         "1w": timedelta(weeks=1),
     }
+    research_only: ClassVar[bool] = True
+    suitable_for_live_trading: ClassVar[bool] = False
 
-    def __init__(self, provider: MarketDataProvider | None = None, config: TechnicalAnalystConfig | None = None) -> None:
-        self.provider, self.config = provider or MockMarketDataProvider(), config or TechnicalAnalystConfig()
+    def __init__(
+        self,
+        provider: MarketDataProvider | None = None,
+        config: TechnicalAnalystConfig | None = None,
+        feature_service: FeatureService | None = None,
+    ) -> None:
+        self.provider = provider or MockMarketDataProvider()
+        self.config = config or TechnicalAnalystConfig()
+        self.feature_service = feature_service or FeatureService(provider=self.provider)
         self.freshness, self.confidence = DataFreshnessService(), ConfidenceAssessmentService(self.config.uncalibrated_confidence_cap)
         self.validator, self.synthesizer = EvidenceValidationService(self.freshness), TechnicalEvidenceSynthesizer()
         self._opinions: dict[str, AnalystOpinion] = {}
@@ -135,6 +157,10 @@ class TechnicalAnalyst(Analyst):
             description="Deterministic indicators, volume, structure, support, resistance, and evidence synthesis",
         )
 
+    # ------------------------------------------------------------------
+    # Thin delegation to canonical feature generators (no formula duplication)
+    # ------------------------------------------------------------------
+
     @staticmethod
     def sma(values: list[float], period: int) -> float:
         return TrendFeatureGenerator.sma(values, period)
@@ -148,8 +174,8 @@ class TechnicalAnalyst(Analyst):
         return TrendFeatureGenerator.ema(values, period)
 
     @staticmethod
-    def moving_average_slope(series: list[float], period: int, *, exponential: bool = False) -> float:
-        return TrendFeatureGenerator.moving_average_slope(series, period, exponential=exponential)
+    def moving_average_slope(values: list[float], period: int, *, exponential: bool = False) -> float:
+        return TrendFeatureGenerator.moving_average_slope(values, period, exponential=exponential)
 
     @classmethod
     def crossover(cls, values: list[float], fast: int, slow: int) -> tuple[str, int]:
@@ -222,6 +248,261 @@ class TechnicalAnalyst(Analyst):
             session="regular",
         )
 
+    @staticmethod
+    def _feature_snapshot_request(request: AnalystRequest) -> FeatureSnapshotRequest:
+        """Build a FeatureSnapshotRequest from an AnalystRequest.
+
+        Maps the analyst's lookback and as_of to the feature platform's
+        request, requesting the feature IDs relevant to the technical analyst.
+        """
+        return FeatureSnapshotRequest(
+            ticker=request.ticker,
+            timeframe=request.timeframe,
+            as_of=request.as_of,
+            lookback=request.lookback,
+            adjustment="raw",
+            session="regular",
+        )
+
+    def _extras_from_context(self, request: AnalystRequest) -> dict[str, Any] | None:
+        """Extract Kronos / backtest extras from the analyst request's extra_context.
+
+        Only proper model objects are forwarded to the FeatureService so that
+        the generator layer receives typed inputs.  Dict-style values (e.g.
+        ``{"direction": "UP"}``) are handled by the analyst's evidence layer
+        directly rather than being passed through to feature generation.
+        """
+        extras: dict[str, Any] = {}
+        kronos = request.extra_context.get("kronos_forecast")
+        if kronos is not None and hasattr(kronos, "model_dump"):
+            extras["kronos_forecast"] = kronos
+        backtest = request.extra_context.get("backtest_result")
+        if backtest is not None and (hasattr(backtest, "model_dump") or isinstance(backtest, dict)):
+            extras["backtest_metrics"] = backtest
+        return extras or None
+
+    # ------------------------------------------------------------------
+    # FeatureSnapshot -> TechnicalAnalysisSnapshot conversion (no recalculation)
+    # ------------------------------------------------------------------
+
+    def _snapshot_from_features(self, feature_snapshot: FeatureSnapshot) -> TechnicalAnalysisSnapshot:
+        """Build a ``TechnicalAnalysisSnapshot`` from a ``FeatureSnapshot``.
+
+        No indicator formulas are recalculated — every value is read directly
+        from the MIFP FeatureSnapshot produced by FeatureService.
+        """
+        vector = feature_snapshot.vector
+        values = {str(item.feature_id): item for item in vector.values}
+        timestamp = feature_snapshot.as_of
+        indicators: list[TechnicalIndicatorValue] = []
+
+        trend_features = {
+            "trend.sma_10": 10,
+            "trend.sma_20": 20,
+            "trend.sma_50": 50,
+            "trend.ema_12": 12,
+            "trend.ema_26": 26,
+        }
+        for feature_id, period in trend_features.items():
+            if feature_id in values:
+                value = values[feature_id].value
+                if isinstance(value, float):
+                    direction: Literal["up", "down", "flat"] = "up" if value > 0 else "down" if value < 0 else "flat"
+                    indicators.append(
+                        TechnicalIndicatorValue(name=feature_id, value=value, period=period, direction=direction, timestamp=timestamp)
+                    )
+
+        slope_features = {
+            "trend.sma_slope": self.config.sma_periods[0],
+            "trend.ema_slope": self.config.ema_periods[0],
+        }
+        for feature_id, period in slope_features.items():
+            if feature_id in values:
+                value = values[feature_id].value
+                if isinstance(value, float):
+                    direction = "up" if value > 0 else "down" if value < 0 else "flat"
+                    indicators.append(
+                        TechnicalIndicatorValue(name=feature_id, value=value, period=period, direction=direction, timestamp=timestamp)
+                    )
+
+        crossover_features = {"trend.crossover_age": None, "trend.crossover_state": None}
+        for feature_id in crossover_features:
+            if feature_id in values:
+                value = values[feature_id].value
+                if isinstance(value, (int, float)):
+                    direction = "up" if value > 0 else "down" if value < 0 else "flat"
+                    indicators.append(
+                        TechnicalIndicatorValue(name=feature_id, value=value, period=None, direction=direction, timestamp=timestamp)
+                    )
+
+        simple_features: dict[str, int | None] = {
+            "momentum.roc_12": self.config.roc_period,
+            "momentum.rsi_14": self.config.rsi_period,
+            "volatility.atr_14": self.config.atr_period,
+            "volatility.bollinger_bandwidth": self.config.bollinger_period,
+            "volume.obv": None,
+            "volume.average_20": self.config.volume_period,
+            "volume.relative_20": self.config.volume_period,
+            "volume.vwap": None,
+        }
+        for feature_id, simple_period in simple_features.items():
+            if feature_id in values:
+                value = values[feature_id].value
+                if isinstance(value, (int, float)) and simple_period is not None:
+                    direction = "up" if value > 0 else "down" if value < 0 else "flat"
+                    indicators.append(
+                        TechnicalIndicatorValue(
+                            name=feature_id, value=value, period=simple_period, direction=direction, timestamp=timestamp
+                        )
+                    )
+
+        bollinger_features = {
+            "volatility.bollinger_lower": self.config.bollinger_period,
+            "volatility.bollinger_middle": self.config.bollinger_period,
+            "volatility.bollinger_upper": self.config.bollinger_period,
+        }
+        for feature_id, bollinger_period in bollinger_features.items():
+            if feature_id in values:
+                value = values[feature_id].value
+                if isinstance(value, (int, float)) and bollinger_period is not None:
+                    direction = "up" if value > 0 else "down" if value < 0 else "flat"
+                    indicators.append(
+                        TechnicalIndicatorValue(
+                            name=feature_id, value=value, period=bollinger_period, direction=direction, timestamp=timestamp
+                        )
+                    )
+
+        momentum_macd = {
+            "momentum.macd": None,
+            "momentum.macd_signal": None,
+            "momentum.macd_histogram": None,
+        }
+        for feature_id in momentum_macd:
+            if feature_id in values:
+                value = values[feature_id].value
+                if isinstance(value, (int, float)):
+                    direction = "up" if value > 0 else "down" if value < 0 else "flat"
+                    indicators.append(
+                        TechnicalIndicatorValue(name=feature_id, value=value, period=None, direction=direction, timestamp=timestamp)
+                    )
+
+        volatility_tr = "volatility.true_range"
+        if volatility_tr in values:
+            value = values[volatility_tr].value
+            if isinstance(value, (int, float)):
+                direction = "up" if value > 0 else "down" if value < 0 else "flat"
+                indicators.append(
+                    TechnicalIndicatorValue(
+                        name=volatility_tr, value=value, period=self.config.atr_period, direction=direction, timestamp=timestamp
+                    )
+                )
+
+        structure_state = MarketStructureState(
+            regime=_as_regime(values.get("structure.regime")),
+            higher_highs=_as_int(values.get("structure.higher_highs")),
+            higher_lows=_as_int(values.get("structure.higher_lows")),
+            lower_highs=_as_int(values.get("structure.lower_highs")),
+            lower_lows=_as_int(values.get("structure.lower_lows")),
+            bos_timestamp=_parse_optional_timestamp(values.get("structure.bos_timestamp")),
+            choch_timestamp=_parse_optional_timestamp(values.get("structure.choch_timestamp")),
+            last_confirmed_timestamp=timestamp,
+        )
+
+        levels: list[TechnicalLevel] = []
+        level_count = _as_int(values.get("support_resistance.level_count"))
+        touch_count = _as_int(values.get("support_resistance.touch_count"))
+        broken_count = _as_int(values.get("support_resistance.broken_count"))
+        nearest_support_raw = values.get("support_resistance.nearest_support")
+        nearest_resistance_raw = values.get("support_resistance.nearest_resistance")
+        if nearest_support_raw is not None and isinstance(nearest_support_raw.value, (int, float)):
+            levels.append(
+                TechnicalLevel(
+                    price=nearest_support_raw.value,
+                    level_type="support",
+                    strength=EvidenceStrength.STRONG if level_count > 0 else EvidenceStrength.WEAK,
+                    confirmed_at=timestamp,
+                    touch_count=max(touch_count, 1),
+                    broken=bool(broken_count > 0),
+                )
+            )
+        if nearest_resistance_raw is not None and isinstance(nearest_resistance_raw.value, (int, float)):
+            levels.append(
+                TechnicalLevel(
+                    price=nearest_resistance_raw.value,
+                    level_type="resistance",
+                    strength=EvidenceStrength.STRONG if level_count > 0 else EvidenceStrength.WEAK,
+                    confirmed_at=timestamp,
+                    touch_count=max(touch_count, 1),
+                    broken=bool(broken_count > 0),
+                )
+            )
+
+        return TechnicalAnalysisSnapshot(
+            bars_analyzed=feature_snapshot.bars_analyzed,
+            timeframe=feature_snapshot.timeframe,
+            indicator_values=indicators,
+            swing_points=[],
+            structure=structure_state,
+            levels=levels,
+            generated_at=feature_snapshot.as_of,
+        )
+
+    # ------------------------------------------------------------------
+    # Backward-compatible snapshot_from_bars (used by API route)
+    # ------------------------------------------------------------------
+
+    def snapshot_from_bars(self, bars: list[OHLCVBar], timeframe: Timeframe, generated_at: datetime) -> TechnicalAnalysisSnapshot:
+        _require_aware_utc(generated_at)
+        causal = [bar for bar in bars if bar.timestamp <= generated_at]
+        if len(causal) < self._minimum_bars():
+            raise AnalystError(AnalystErrorCodes.INSUFFICIENT_DATA, "Not enough historical bars")
+        indicators, _ = self._indicator_values(causal)
+        swings = self._confirmed_swings(causal)
+        structure = self._classify_structure(causal, swings)
+        levels = self._clustered_levels(swings, causal[-1].close)
+        return TechnicalAnalysisSnapshot(
+            bars_analyzed=len(causal),
+            timeframe=timeframe,
+            indicator_values=indicators,
+            swing_points=swings,
+            structure=structure,
+            levels=levels,
+            generated_at=generated_at,
+        )
+
+    @staticmethod
+    def _confirmed_swings(bars: list[OHLCVBar]) -> list[SwingPoint]:
+        from app.services.features.generators.structure import confirmed_swings
+
+        return confirmed_swings(bars)
+
+    @staticmethod
+    def _classify_structure(bars: list[OHLCVBar], swings: list[SwingPoint]) -> MarketStructureState:
+        from app.services.features.generators.structure import classify_structure
+
+        return classify_structure(bars, swings)
+
+    @staticmethod
+    def _clustered_levels(swings: list[SwingPoint], current_price: float) -> list[TechnicalLevel]:
+        from app.services.features.generators.support_resistance import clustered_levels
+
+        return clustered_levels(
+            swings,
+            current_price,
+            tolerance=0.01,  # default
+            limit=6,  # default
+        )
+
+    def snapshot(self, request: AnalystRequest) -> TechnicalAnalysisSnapshot:
+        self.validate_input(request)
+        bars_request = self._bars_request(request)
+        result = self.provider.get_bars(bars_request)
+        return self.snapshot_from_bars(result.bars, request.timeframe, request.as_of)
+
+    # ------------------------------------------------------------------
+    # Indicator value computation (kept for backward compatibility)
+    # ------------------------------------------------------------------
+
     def _indicator_values(self, bars: list[OHLCVBar]) -> tuple[list[TechnicalIndicatorValue], dict[str, float | str | int]]:
         closes = [bar.close for bar in bars]
         timestamp = bars[-1].timestamp
@@ -262,30 +543,122 @@ class TechnicalAnalyst(Analyst):
         add("vwap", self.vwap(bars))
         return indicators, raw
 
-    def snapshot_from_bars(self, bars: list[OHLCVBar], timeframe: Timeframe, generated_at: datetime) -> TechnicalAnalysisSnapshot:
-        _require_aware_utc(generated_at)
-        causal = [bar for bar in bars if bar.timestamp <= generated_at]
-        if len(causal) < self._minimum_bars():
-            raise AnalystError(AnalystErrorCodes.INSUFFICIENT_DATA, "Not enough historical bars")
-        indicators, _ = self._indicator_values(causal)
-        swings = confirmed_swings(causal)
-        structure = classify_structure(causal, swings)
-        levels = clustered_levels(swings, causal[-1].close, tolerance=self.config.level_tolerance, limit=self.config.level_limit)
-        return TechnicalAnalysisSnapshot(
-            bars_analyzed=len(causal),
-            timeframe=timeframe,
-            indicator_values=indicators,
-            swing_points=swings,
-            structure=structure,
-            levels=levels,
-            generated_at=generated_at,
-        )
+    # ------------------------------------------------------------------
+    # Evidence from FeatureSnapshot (normal analysis path)
+    # ------------------------------------------------------------------
 
-    def snapshot(self, request: AnalystRequest) -> TechnicalAnalysisSnapshot:
-        self.validate_input(request)
-        bars_request = self._bars_request(request)
-        result = self.provider.get_bars(bars_request)
-        return self.snapshot_from_bars(result.bars, request.timeframe, request.as_of)
+    @staticmethod
+    def _value(values: dict[str, Any], key: str) -> float | str | int | None:
+        item = values.get(key)
+        if item is None:
+            return None
+        return item.value if hasattr(item, "value") else None
+
+    def _evidence_from_features(
+        self,
+        request: AnalystRequest,
+        observed: datetime,
+        provider: str,
+        snapshot: TechnicalAnalysisSnapshot,
+        feature_snapshot: FeatureSnapshot,
+        material: str,
+    ) -> list[EvidenceItem]:
+        """Convert FeatureSnapshot values into Phase 5 EvidenceItem objects."""
+        vector = feature_snapshot.vector
+        values = {str(item.feature_id): item for item in vector.values}
+        raw: dict[str, Any] = {}
+
+        for item in vector.values:
+            raw[str(item.feature_id)] = item.value
+
+        def val(key: str) -> float:
+            item = values.get(key)
+            if item is None or not isinstance(item.value, (int, float)):
+                return 0.0
+            return float(item.value)
+
+        sma_slope = val("trend.sma_slope")
+        ema_slope = val("trend.ema_slope")
+        crossover_state_raw = values.get("trend.crossover_state")
+        cross = str(crossover_state_raw.value) if crossover_state_raw else "unknown"
+        roc = val("momentum.roc_12")
+        rsi = val("momentum.rsi_14")
+        macd_histogram = val("momentum.macd_histogram")
+        obv = val("volume.obv")
+        relative_volume = val("volume.relative_20")
+        vwap = val("volume.vwap")
+        volume_average = val("volume.average_20")
+        atr = val("volatility.atr_14")
+        bollinger_bandwidth = val("volatility.bollinger_bandwidth")
+        regime_item = values.get("structure.regime")
+        regime = str(regime_item.value) if regime_item and isinstance(regime_item.value, str) else "range_bound"
+        swing_count = int(val("structure.swing_count")) if values.get("structure.swing_count") else 0
+        bos_item = values.get("structure.bos_timestamp")
+        choch_item = values.get("structure.choch_timestamp")
+        bos_str = _feature_timestamp_str(bos_item)
+        choch_str = _feature_timestamp_str(choch_item)
+        level_count = int(val("support_resistance.level_count")) if values.get("support_resistance.level_count") else 0
+        touch_count = int(val("support_resistance.touch_count")) if values.get("support_resistance.touch_count") else 0
+        broken_count = int(val("support_resistance.broken_count")) if values.get("support_resistance.broken_count") else 0
+        has_support = values.get("support_resistance.nearest_support") is not None
+        has_resistance = values.get("support_resistance.nearest_resistance") is not None
+
+        directions = {
+            "trend": "bullish" if sma_slope > 0 and cross == "above" else "bearish" if sma_slope < 0 and cross == "below" else "mixed",
+            "momentum": "bullish"
+            if roc > 0 and macd_histogram >= 0 and rsi < 70
+            else "bearish"
+            if roc < 0 and macd_histogram <= 0 and rsi > 30
+            else "mixed",
+            "volatility": "neutral",
+            "volume": "bullish" if obv > 0 else "bearish" if obv < 0 else "neutral",
+            "structure": "bullish" if regime == "uptrend" else "bearish" if regime == "downtrend" else "neutral",
+            "levels": "support holding" if has_support else "resistance holding" if has_resistance else "neutral",
+        }
+        details = {
+            "trend": f"sma_slope={sma_slope:.6f}, ema_slope={ema_slope:.6f}, crossover={cross}, bos={bos_str}, choch={choch_str}",
+            "momentum": f"roc={roc:.4f}, rsi={rsi:.4f}, macd_histogram={macd_histogram:.6f}",
+            "volatility": f"atr={atr:.6f}, bollinger_bandwidth={bollinger_bandwidth:.6f}",
+            "volume": f"obv={obv:.0f}, relative_volume={relative_volume:.4f}, volume_average={volume_average:.2f}, vwap={vwap:.4f}",
+            "structure": f"regime={regime}, swings={swing_count}, bos={bos_str}, choch={choch_str}",
+            "levels": f"count={level_count}, touches={touch_count}, broken={broken_count}",
+        }
+        evidence = [
+            self._item(
+                request,
+                observed,
+                provider,
+                category,
+                f"{category}: {directions[category]}; {details[category]}",
+                material,
+                EvidenceType.TECHNICAL_INDICATOR,
+                EvidenceStrength.MODERATE,
+                source_provenance=feature_snapshot.provenance,
+            )
+            for category in details
+        ]
+        for key, evidence_type, category in (
+            ("kronos_forecast", EvidenceType.FORECAST, "forecast"),
+            ("backtest_result", EvidenceType.BACKTEST, "backtest"),
+        ):
+            if key in request.extra_context:
+                value = request.extra_context[key]
+                summary = self._external_summary(category, value)
+                evidence.append(
+                    self._item(
+                        request,
+                        observed,
+                        category,
+                        category,
+                        summary,
+                        material,
+                        evidence_type,
+                        EvidenceStrength.MODERATE if category == "forecast" else EvidenceStrength.STRONG,
+                        calibrated=category == "backtest",
+                        source_provenance=None,
+                    )
+                )
+        return evidence
 
     def _evidence(
         self,
@@ -296,6 +669,7 @@ class TechnicalAnalyst(Analyst):
         raw: dict[str, float | str | int],
         material: str,
     ) -> list[EvidenceItem]:
+        """Legacy evidence builder (used by snapshot_from_bars path)."""
         values = {item.name: item.value for item in snapshot.indicator_values}
         cross = str(raw["crossover_state"])
         directions = {
@@ -384,8 +758,18 @@ class TechnicalAnalyst(Analyst):
         strength: EvidenceStrength,
         *,
         calibrated: bool = False,
+        source_provenance: Any = None,
     ) -> EvidenceItem:
         confidence = self.config.base_confidence
+        provenance_records: list[ProvenanceRecord] = [ProvenanceRecord(source=source, retrieved_at=request.as_of, uri=None)]
+        if source_provenance is not None:
+            provenance_records.append(
+                ProvenanceRecord(
+                    source=f"mifp:{source_provenance.input_fingerprint}",
+                    retrieved_at=source_provenance.source_retrieved_at,
+                    uri=None,
+                )
+            )
         return EvidenceItem(
             evidence_id=str(uuid5(NAMESPACE_URL, f"technical-evidence|{material}|{category}")),
             evidence_type=evidence_type,
@@ -403,7 +787,7 @@ class TechnicalAnalyst(Analyst):
             assumptions=[Assumption(description="Only information available at the evaluation time is used")],
             warnings=[AnalysisWarning(code="RESEARCH_ONLY", message="Evidence is not a trading decision")],
             limitations=[AnalysisLimitation(code="HISTORICAL_PATTERN", message="Historical patterns may not persist")],
-            provenance=[ProvenanceRecord(source=source, retrieved_at=request.as_of, uri=None)],
+            provenance=provenance_records,
         )
 
     def _trace(self, opinion_id: str, evidence: list[EvidenceItem], request: AnalystRequest, provider: str) -> AnalysisTrace:
@@ -465,26 +849,43 @@ class TechnicalAnalyst(Analyst):
     def analyze(self, request: AnalystRequest) -> AnalystOpinion:
         self.validate_input(request)
         _require_aware_utc(request.as_of)
-        bars_request = self._bars_request(request)
-        key = cache_key_builder("technical", bars_request, "raw", "regular", {"phase": 6, "config": repr(self.config)})
+        extras = self._extras_from_context(request)
+
+        # Normal analysis path: consume a FeatureSnapshot from FeatureService (MIFP).
+        try:
+            feature_request = self._feature_snapshot_request(request)
+            feature_snapshot = self.feature_service.snapshot(feature_request, extras=extras)
+        except (FeatureError, MarketDataError, ValueError):
+            return self._insufficient(request, f"{request.model_dump_json()}|insufficient")
+
+        key = cache_key_builder(
+            "technical",
+            self._bars_request(request),
+            "raw",
+            "regular",
+            {"phase": 6, "config": repr(self.config)},
+        )
         with self._lock:
             if key in self._opinions:
                 return self._opinions[key]
+
         material = f"{request.model_dump_json()}|{key}"
-        try:
-            result = self.provider.get_bars(bars_request)
-        except MarketDataError:
-            return self._insufficient(request, material)
-        bars = [bar for bar in result.bars if bar.timestamp <= request.as_of]
-        if len(bars) < self._minimum_bars():
-            return self._insufficient(request, material)
-        snapshot = self.snapshot_from_bars(bars, request.timeframe, request.as_of)
-        _, raw = self._indicator_values(bars)
-        evidence = self._evidence(request, bars[-1].timestamp, result.provider, snapshot, raw, material)
+        # Use the latest bar timestamp from the feature snapshot as the observation time.
+        feature_values = {str(item.feature_id): item for item in feature_snapshot.vector.values}
+        observed = (
+            feature_values["price.close"].observed_at
+            if "price.close" in feature_values
+            else feature_snapshot.provenance.source_retrieved_at
+        )
+        provider = feature_snapshot.provider
+        snapshot = self._snapshot_from_features(feature_snapshot)
+        evidence = self._evidence_from_features(request, observed, provider, snapshot, feature_snapshot, material)
+
         try:
             self.validator.validate(evidence, request.as_of, allow_stale=self.config.stale_input_allowed)
         except AnalystError:
             return self._insufficient(request, material)
+
         synthesis = self.synthesizer.synthesize(evidence, request.as_of)
         opinion_id = str(uuid5(NAMESPACE_URL, f"technical-opinion|{material}|{synthesis.direction.value}"))
         opinion = AnalystOpinion(
@@ -504,9 +905,75 @@ class TechnicalAnalyst(Analyst):
             warnings=[AnalysisWarning(code="RESEARCH_ONLY", message="This opinion is not a trading decision")],
             limitations=[AnalysisLimitation(code="LAGGING_INDICATORS", message="Indicators derive from historical observations")],
             generated_at=request.as_of,
-            data_freshness=self.freshness.assess(bars[-1].timestamp, bars[-1].timestamp, request.as_of, EvidenceType.TECHNICAL_INDICATOR),
+            data_freshness=self.freshness.assess(
+                observed,
+                observed,
+                request.as_of,
+                EvidenceType.TECHNICAL_INDICATOR,
+            ),
         )
-        trace = self._trace(opinion_id, evidence, request, result.provider)
+        trace = self._trace(opinion_id, evidence, request, provider)
         with self._lock:
             self._opinions[key], self._traces[opinion_id], self._snapshots[key] = opinion, trace, snapshot
         return opinion
+
+    def _has_sufficient_bars(self, request: AnalystRequest) -> bool:
+        try:
+            bars = self._fetch_bars(request)
+            return len(bars) >= self._minimum_bars()
+        except MarketDataError:
+            return False
+
+    def _fetch_bars(self, request: AnalystRequest) -> list[OHLCVBar]:
+        """Fetch raw bars for structured snapshot construction (swings, levels)."""
+        bars_request = self._bars_request(request)
+        result = self.provider.get_bars(bars_request)
+        return [bar for bar in result.bars if bar.timestamp <= request.as_of]
+
+
+def _parse_optional_timestamp(value: Any) -> datetime | None:
+    """Parse a scalar feature value that may be an ISO timestamp string or None."""
+    if value is None:
+        return None
+    raw = value.value if hasattr(value, "value") else value
+    if raw is None:
+        return None
+    if isinstance(raw, str):
+        return datetime.fromisoformat(raw)
+    return None
+
+
+def _feature_timestamp_str(value: Any) -> str:
+    """Return a string representation of a timestamp feature value (or 'None')."""
+    if value is None:
+        return "None"
+    raw = value.value if hasattr(value, "value") else value
+    return str(raw) if raw is not None else "None"
+
+
+def _as_int(value: Any) -> int:
+    """Extract an int from a FeatureValue-like object or return 0."""
+    if value is None:
+        return 0
+    raw = value.value if hasattr(value, "value") else value
+    if isinstance(raw, bool):
+        return int(raw)
+    if isinstance(raw, (int, float)):
+        return int(raw)
+    return 0
+
+
+def _as_regime(value: Any) -> Literal["uptrend", "downtrend", "range_bound"]:
+    """Extract a typed market-regime from a FeatureValue, defaulting to range_bound."""
+    if value is None:
+        return "range_bound"
+    raw = value.value if hasattr(value, "value") else value
+    if not isinstance(raw, str):
+        return "range_bound"
+    if raw == "uptrend":
+        regime: Literal["uptrend", "downtrend", "range_bound"] = "uptrend"
+    elif raw == "downtrend":
+        regime = "downtrend"
+    else:
+        regime = "range_bound"
+    return regime

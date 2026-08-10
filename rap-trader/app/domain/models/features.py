@@ -53,16 +53,21 @@ class FeatureMetadata(_FeatureModel):
     generator: str = Field(min_length=1)
     dependencies: tuple[FeatureDependency, ...] = ()
     unit: str | None = None
+    schema_version: str = Field(min_length=1, default="1.0.0")
+    platform_version: str = Field(min_length=1, default="mifp-6.5.0")
 
 
 class FeatureValue(_FeatureModel):
     feature_id: FeatureId
     value: FeatureScalar
     observed_at: UtcDatetime
+    available_at: UtcDatetime
+    generated_at: UtcDatetime
+    source_fingerprint: str = Field(min_length=1, max_length=128)
     category: FeatureCategory
     version: str = Field(min_length=1)
 
-    @field_validator("observed_at")
+    @field_validator("observed_at", "available_at", "generated_at")
     @classmethod
     def aware_timestamp(cls, value: datetime) -> datetime:
         return _require_aware_utc(value)
@@ -73,6 +78,14 @@ class FeatureValue(_FeatureModel):
         if isinstance(value, float) and not isfinite(value):
             raise ValueError("feature values must be finite")
         return value
+
+    @model_validator(mode="after")
+    def availability_chronology(self) -> FeatureValue:
+        if self.available_at > self.generated_at:
+            raise ValueError("available_at cannot be after generated_at")
+        if self.available_at > self.observed_at:
+            raise ValueError("available_at cannot be after observed_at")
+        return self
 
 
 class FeatureVector(_FeatureModel):
@@ -95,6 +108,8 @@ class FeatureVector(_FeatureModel):
 class FeatureProvenance(_FeatureModel):
     source_data: str = Field(min_length=1)
     generator_version: str = Field(min_length=1)
+    feature_schema_version: str = Field(min_length=1)
+    platform_version: str = Field(min_length=1)
     feature_versions: tuple[tuple[str, str], ...]
     source_retrieved_at: UtcDatetime
     generated_at: UtcDatetime
@@ -116,6 +131,7 @@ class FeatureSnapshot(_FeatureModel):
     session: SessionPolicy
     as_of: UtcDatetime
     generated_at: UtcDatetime
+    bars_analyzed: int = Field(ge=0)
     vector: FeatureVector
     provenance: FeatureProvenance
     stale: bool
@@ -125,6 +141,14 @@ class FeatureSnapshot(_FeatureModel):
     @classmethod
     def aware_timestamps(cls, value: datetime) -> datetime:
         return _require_aware_utc(value)
+
+    @model_validator(mode="after")
+    def no_lookahead_features(self) -> FeatureSnapshot:
+        """Reject any feature that was unavailable at snapshot.as_of."""
+        for value in self.vector.values:
+            if value.available_at > self.as_of:
+                raise ValueError(f"feature '{value.feature_id}' is unavailable at snapshot as_of")
+        return self
 
 
 class FeatureStoreStatistics(_FeatureModel):

@@ -18,3 +18,33 @@ Phase 1 includes only an in-memory paper simulator with process-local state and 
 # Phase 5 analyst boundary
 
 The analyst layer depends only on domain contracts and its local opinion infrastructure. It has no dependency on risk, portfolio, broker, execution, committee, or chairman components. API and CLI callers receive research opinions; descriptive aggregation cannot promote them to decisions. Deferred committee fusion is isolated in `app/experimental` and has no production imports.
+
+# Phase 6.5 — Market Intelligence Feature Platform boundary
+
+The Market Intelligence Feature Platform (MIFP) is the canonical, deterministic source of engineered technical features. `FeatureService` consumes normalized bars from a Phase 2 `MarketDataProvider`, runs registered feature generators in topological (dependency) order, and produces an immutable `FeatureSnapshot` with full provenance.
+
+## FeatureService pipeline
+
+```
+MarketDataProvider.get_bars()
+  → HistoricalBarsResult (validated, UTC-normalized, OHLC-checked)
+  → FeatureRegistry.compute_many() (topological sort over FeatureDependencyGraph)
+  → FeatureValue[] (each with observed_at, available_at, generated_at, source_fingerprint)
+  → ProvenanceRecorder.build() (source fingerprint, generator versions, dependency graph)
+  → build_cache_key() (SHA-256 key encoding ticker, timeframe, provider, adjustment,
+     session, as_of, lookback, configuration_hash, schema_version, kronos_fp, backtest_fp)
+  → FeatureSnapshotCache.set() (immutable, frozen, deeply-validated)
+```
+
+## Data flow boundaries
+
+* **No lookahead.** `FeatureSnapshot` model validator rejects any feature whose `available_at > as_of`. For price-derived features, `available_at` equals the bar timestamp. For external features (Kronos, backtests), `available_at` reflects when the external information became available.
+* **Immutable snapshot.** `FeatureSnapshot` is frozen (`strict=True`, `frozen=True`, `extra="forbid"`). Tests verify that mutation raises `ValidationError` and that serialization round-trips identically.
+* **Deterministic identity.** Cache keys are SHA-256 hashes of all computation-relevant dimensions. Different lookbacks, Kronos inputs, backtest inputs, or schema versions never collide.
+* **No external dependencies.** MIFP has no imports of broker, execution, risk, portfolio, committee, or chairman components. No LLM, no network, no model download, no credentials.
+
+See `docs/FEATURE_PLATFORM.md` and `docs/phases/PHASE_06_5_FEATURE_PLATFORM.md`.
+
+## Technical Analyst integration
+
+The Phase 6 Technical Analyst (`app/services/technical_analysis/service.py`) consumes `FeatureSnapshot` from `FeatureService` as its sole feature source. The normal analysis path (`analyze()`) never independently recalculates SMA, EMA, RSI, MACD, ATR, Bollinger, OBV, VWAP, market structure, or support/resistance — all values are read from the immutable snapshot. See `docs/TECHNICAL_ANALYST.md`.
