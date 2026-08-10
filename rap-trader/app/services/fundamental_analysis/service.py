@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import threading
 from datetime import UTC, datetime
+from hashlib import sha256
 from uuid import NAMESPACE_URL, uuid5
 
 from pydantic import ValidationError
@@ -35,7 +36,7 @@ from app.services.fundamental_analysis.config import FundamentalAnalystConfig
 from app.services.fundamental_analysis.earnings_quality import EarningsQualityService
 from app.services.fundamental_analysis.evidence import FundamentalEvidenceFactory
 from app.services.fundamental_analysis.growth import GrowthAnalysisService
-from app.services.fundamental_analysis.normalization import FinancialDataNormalizationService
+from app.services.fundamental_analysis.normalization import FinancialDataNormalizationService, NormalizedFinancialStatements
 from app.services.fundamental_analysis.profitability import ProfitabilityAnalysisService
 from app.services.fundamental_analysis.shareholder import ShareholderAnalysisService
 from app.services.fundamental_analysis.synthesis import FundamentalOpinionSynthesisService
@@ -138,6 +139,35 @@ class FundamentalAnalyst(Analyst):
             data_freshness=self.freshness.assess(request.as_of, request.as_of, request.as_of, EvidenceType.OTHER),
         )
 
+    @staticmethod
+    def _data_quality_metrics(data: NormalizedFinancialStatements, as_of: datetime) -> list[FundamentalMetric]:
+        latest_income = max(
+            data.income_statements,
+            key=lambda statement: (statement.period.period_end, statement.period.available_at),
+            default=None,
+        )
+        period_end = latest_income.period.period_end if latest_income is not None else as_of
+        available_at = latest_income.period.available_at if latest_income is not None else as_of
+        metrics: list[FundamentalMetric] = []
+        for warning in data.warnings:
+            fingerprint = sha256(warning.encode()).hexdigest()
+            metrics.append(
+                FundamentalMetric(
+                    metric_id=f"data_quality.normalization_warning.{fingerprint}",
+                    name=warning,
+                    category="data_quality",
+                    value=1.0,
+                    units="warning",
+                    period_end=period_end,
+                    available_at=available_at,
+                    source_fingerprint=fingerprint,
+                    formula_version="1.0",
+                    valid=True,
+                    warnings=[warning],
+                )
+            )
+        return metrics
+
     def analyze(self, request: AnalystRequest) -> AnalystOpinion:
         self.validate_input(request)
         fundamentals = self._fundamentals(request)
@@ -157,6 +187,7 @@ class FundamentalAnalyst(Analyst):
             metrics.extend(found)
         valuation, _ = ValuationAnalysisService().analyze(normalized, fundamentals)
         metrics.extend(valuation)
+        metrics.extend(self._data_quality_metrics(normalized, request.as_of))
         if not metrics:
             return self._insufficient(request, "Insufficient compatible financial inputs")
         source = str(fundamentals.source_metadata.get("source", "supplied financial statements"))

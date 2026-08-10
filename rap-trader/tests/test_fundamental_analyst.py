@@ -19,7 +19,8 @@ from app.domain.models.fundamental import (
     PeriodType,
 )
 from app.services.fundamental_analysis import FundamentalAnalyst
-from app.services.fundamental_analysis.normalization import FinancialDataNormalizationService
+from app.services.fundamental_analysis.config import FundamentalAnalystConfig
+from app.services.fundamental_analysis.normalization import FinancialDataNormalizationService, NormalizedFinancialStatements
 
 
 def period(year: int, *, restated: bool = False, available_days: int = 60) -> FinancialStatementPeriod:
@@ -167,6 +168,46 @@ def test_analyst_is_deterministic_research_only() -> None:
     serialized = first.model_dump_json().lower()
     assert '"buy"' not in serialized and '"sell"' not in serialized
     assert len({item.evidence_id for item in first.evidence}) == len(first.evidence)
+
+
+def test_normalization_warnings_are_emitted_as_data_quality_evidence() -> None:
+    value = fundamentals(duplicate=True)
+    as_of = datetime(2025, 3, 15, tzinfo=UTC)
+    request = AnalystRequest(
+        analyst_id="fundamental",
+        ticker="TEST",
+        timeframe="1d",
+        as_of=as_of,
+        lookback=3,
+        horizon=1,
+        asset_class="equity",
+        extra_context={"fundamentals": value.model_dump(mode="json")},
+    )
+
+    opinion = FundamentalAnalyst(FundamentalAnalystConfig(stale_input_allowed=True)).analyze(request)
+
+    data_quality = [item for item in opinion.evidence if item.summary.startswith("data_quality:")]
+    assert len(data_quality) == 2
+    assert all(item.observed_at == period(2024, restated=True, available_days=70).period_end for item in data_quality)
+    assert all(item.available_at == period(2024, restated=True, available_days=70).available_at for item in data_quality)
+    assert {item.warnings[0].message for item in data_quality} == {
+        "duplicate period detected: (2024, None, <PeriodType.ANNUAL: 'ANNUAL'>)",
+        "restatement selected: (2024, None, <PeriodType.ANNUAL: 'ANNUAL'>)",
+    }
+
+
+def test_data_quality_metrics_fall_back_to_as_of_without_income_statements() -> None:
+    as_of = datetime(2025, 3, 15, tzinfo=UTC)
+    normalized = NormalizedFinancialStatements((), (), (), (), (), (), ("missing income statements",))
+
+    metrics = FundamentalAnalyst._data_quality_metrics(normalized, as_of)
+
+    assert len(metrics) == 1
+    assert metrics[0].period_end == as_of
+    assert metrics[0].available_at == as_of
+    assert metrics[0].category == "data_quality"
+    assert metrics[0].formula_version == "1.0"
+    assert metrics[0].valid is True
 
 
 def test_source_has_no_forbidden_integrations() -> None:
