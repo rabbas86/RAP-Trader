@@ -7,13 +7,14 @@ from datetime import datetime
 from uuid import NAMESPACE_URL, uuid5
 
 from app.domain.models.analyst import (
-    AnalysisDirection,
+    AnalysisLimitation,
+    AnalysisWarning,
     AnalystError,
     AnalystErrorCodes,
     AnalystOpinion,
     AnalystRequest,
-    ConfidenceScore,
-    EvidenceType,
+    Assumption,
+    EvidenceItem,
 )
 from app.domain.models.fundamental import CompanyFundamentals, FundamentalMetric
 from app.services.analyst.service import Analyst
@@ -178,26 +179,32 @@ class FundamentalAnalyst(Analyst):
             "fundamentals must be a JSON object or string",
         )
 
-    def _insufficient(self, request: AnalystRequest, reason: str) -> AnalystOpinion:
-        opinion_id = str(uuid5(NAMESPACE_URL, f"fundamental|{request.ticker}|{request.as_of.isoformat()}|INSUFFICIENT_EVIDENCE"))
-        confidence = ConfidenceScore(
-            value=0.0, capped=False, calibration_note="uncalibrated; confidence cap enforced", has_historical_calibration=False
+    def _insufficient(
+        self,
+        request: AnalystRequest,
+        reason: str,
+        *,
+        warnings: list[AnalysisWarning] | None = None,
+        limitations: list[AnalysisLimitation] | None = None,
+        assumptions: list[Assumption] | None = None,
+        evidence: list[EvidenceItem] | None = None,
+        source: str | None = None,
+    ) -> AnalystOpinion:
+        if warnings is None:
+            warnings = [AnalysisWarning(code="INSUFFICIENT_DATA", message=reason)]
+        if limitations is None:
+            limitations = [
+                AnalysisLimitation(
+                    code="NO_FUNDAMENTALS",
+                    message="No fundamental conclusion was produced from the supplied financial data",
+                )
+            ]
+        return super()._insufficient(
+            request,
+            reason,
+            warnings=warnings,
+            limitations=limitations,
+            assumptions=assumptions,
+            evidence=evidence,
+            source=source or "fundamentals",
         )
-        opinion = AnalystOpinion(
-            opinion_id=opinion_id,
-            analyst_id=request.analyst_id,
-            analyst_role=self.config.role,
-            ticker=request.ticker,
-            direction=AnalysisDirection.INSUFFICIENT_EVIDENCE,
-            confidence=confidence,
-            evidence=[],
-            assumptions=[],
-            warnings=[],
-            limitations=[],
-            generated_at=request.as_of,
-            data_freshness=self.freshness.assess(request.as_of, request.as_of, request.as_of, EvidenceType.OTHER),
-            decision_ready=False,
-            suitable_for_live_trading=False,
-            research_only=True,
-        )
-        return self._record_trace(opinion, request, "fundamentals")

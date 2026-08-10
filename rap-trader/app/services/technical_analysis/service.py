@@ -16,7 +16,6 @@ from typing import Any, ClassVar, Literal
 from uuid import NAMESPACE_URL, uuid5
 
 from app.domain.models.analyst import (
-    AnalysisDirection,
     AnalysisLimitation,
     AnalysisWarning,
     AnalystError,
@@ -770,21 +769,30 @@ class TechnicalAnalyst(Analyst):
             provenance=provenance_records,
         )
 
-    def _insufficient(self, request: AnalystRequest, material: str) -> AnalystOpinion:
-        opinion = AnalystOpinion(
-            opinion_id=str(uuid5(NAMESPACE_URL, material + "|insufficient")),
-            analyst_id=self.config.analyst_id,
-            analyst_role=self.config.role,
-            ticker=request.ticker,
-            direction=AnalysisDirection.INSUFFICIENT_EVIDENCE,
-            confidence=self.confidence.assess(0),
-            evidence=[],
-            warnings=[AnalysisWarning(code="INSUFFICIENT_DATA", message="Not enough valid historical bars")],
-            limitations=[AnalysisLimitation(code="NO_INDICATORS", message="No technical conclusion was produced")],
-            generated_at=request.as_of,
-            data_freshness=self.freshness.assess(request.as_of, request.as_of, request.as_of, EvidenceType.OTHER),
+    def _insufficient(
+        self,
+        request: AnalystRequest,
+        reason: str,
+        *,
+        warnings: list[AnalysisWarning] | None = None,
+        limitations: list[AnalysisLimitation] | None = None,
+        assumptions: list[Assumption] | None = None,
+        evidence: list[EvidenceItem] | None = None,
+        source: str | None = None,
+    ) -> AnalystOpinion:
+        if warnings is None:
+            warnings = [AnalysisWarning(code="INSUFFICIENT_DATA", message=reason)]
+        if limitations is None:
+            limitations = [AnalysisLimitation(code="NO_INDICATORS", message="No technical conclusion was produced")]
+        return super()._insufficient(
+            request,
+            reason,
+            warnings=warnings,
+            limitations=limitations,
+            assumptions=assumptions,
+            evidence=evidence,
+            source=source or "market-data",
         )
-        return self._record_trace(opinion, request, "market-data")
 
     def analyze(self, request: AnalystRequest) -> AnalystOpinion:
         self.validate_input(request)
@@ -796,7 +804,7 @@ class TechnicalAnalyst(Analyst):
             feature_request = self._feature_snapshot_request(request)
             feature_snapshot = self.feature_service.snapshot(feature_request, extras=extras)
         except (FeatureError, MarketDataError, ValueError):
-            return self._insufficient(request, f"{request.model_dump_json()}|insufficient")
+            return self._insufficient(request, "Feature service unavailable or insufficient market data")
 
         key = cache_key_builder(
             "technical",
@@ -824,7 +832,7 @@ class TechnicalAnalyst(Analyst):
         try:
             self.validator.validate(evidence, request.as_of, allow_stale=self.config.stale_input_allowed)
         except AnalystError:
-            return self._insufficient(request, material)
+            return self._insufficient(request, "Insufficient or stale technical evidence after validation")
 
         synthesis = self.synthesizer.synthesize(evidence, request.as_of)
         opinion_id = str(uuid5(NAMESPACE_URL, f"technical-opinion|{material}|{synthesis.direction.value}"))

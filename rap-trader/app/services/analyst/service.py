@@ -131,6 +131,12 @@ class MockAnalyst(Analyst):
 
     def analyze(self, request: AnalystRequest) -> AnalystOpinion:
         self.validate_input(request)
+        if self.config.mock_direction is AnalysisDirection.INSUFFICIENT_EVIDENCE:
+            return self._insufficient(
+                request,
+                "Mock analyst configured for insufficient evidence",
+                source="mock",
+            )
         evidence = self._evidence(request)
         self.validator.validate(evidence, request.as_of, allow_stale=self.config.stale_input_allowed)
         confidence = self.confidence.assess(self.config.base_confidence if evidence else 0.0)

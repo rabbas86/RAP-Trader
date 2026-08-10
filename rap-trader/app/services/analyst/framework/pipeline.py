@@ -6,7 +6,9 @@ from typing import Protocol, cast
 from uuid import NAMESPACE_URL, uuid5
 
 from app.domain.models.analyst import (
+    AnalysisLimitation,
     AnalysisTrace,
+    AnalysisWarning,
     AnalystError,
     AnalystErrorCodes,
     AnalystHealth,
@@ -14,6 +16,7 @@ from app.domain.models.analyst import (
     AnalystOpinion,
     AnalystRequest,
     AnalystRole,
+    Assumption,
     EvidenceItem,
 )
 from app.services.analyst.framework.confidence import ConfidenceAssessmentService
@@ -98,10 +101,33 @@ class BaseAnalyst(ABC):
         with self._trace_lock:
             return self._traces.get(opinion_id)
 
-    def _insufficient(self, request: AnalystRequest, reason: str) -> AnalystOpinion:
+    def _insufficient(
+        self,
+        request: AnalystRequest,
+        reason: str,
+        *,
+        warnings: list[AnalysisWarning] | None = None,
+        limitations: list[AnalysisLimitation] | None = None,
+        assumptions: list[Assumption] | None = None,
+        evidence: list[EvidenceItem] | None = None,
+        source: str | None = None,
+    ) -> AnalystOpinion:
         opinion_id = str(uuid5(NAMESPACE_URL, f"{self.analyst_id}|{request.ticker}|{request.as_of.isoformat()}|insufficient|{reason}"))
-        opinion = insufficient_opinion(opinion_id, self.analyst_id, self.analyst_role, request, reason, self.freshness, self.confidence)
-        return self._record_trace(opinion, request, self.analyst_id)
+        opinion = insufficient_opinion(
+            opinion_id,
+            self.analyst_id,
+            self.analyst_role,
+            request,
+            reason,
+            self.freshness,
+            self.confidence,
+            warnings=warnings,
+            limitations=limitations,
+            assumptions=assumptions,
+            evidence=evidence,
+            source=source or self.analyst_id,
+        )
+        return self._record_trace(opinion, request, source or self.analyst_id)
 
     @staticmethod
     def translate_error(exc: Exception, safe_message: str = "Analyst processing failed") -> AnalystError:
