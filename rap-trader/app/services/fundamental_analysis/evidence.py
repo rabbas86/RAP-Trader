@@ -34,6 +34,8 @@ class FundamentalEvidenceFactory:
         evidence_type = EvidenceType.VALUATION if item.category == "valuation" else EvidenceType.FINANCIAL_STATEMENT
         observed = min(item.period_end or item.available_at, evaluated_at)
         available = min(item.available_at, evaluated_at)
+        if item.category == "valuation":
+            observed = available
         warnings = [AnalysisWarning(code="FUNDAMENTAL_WARNING", message=text) for text in item.warnings]
         return EvidenceItem(
             evidence_id=str(uuid5(NAMESPACE_URL, f"fundamental|{item.metric_id}|{item.source_fingerprint}|{evaluated_at.isoformat()}")),
