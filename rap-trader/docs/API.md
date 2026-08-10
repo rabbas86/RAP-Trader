@@ -77,6 +77,8 @@ overlap context bars, must match expected target timestamps exactly, and no bar 
 
 All analyst responses are research-only and cannot create trades. Public errors expose only stable codes and safe messages.
 
+Phase 7.5 preserves these endpoints and schemas while consolidating their lifecycle. Mock, Technical, and Fundamental opinions now have deterministic trace DAGs retrievable from the analyst service via `trace_for(opinion_id)`; traces are internal provenance objects and do not alter `AnalystOpinion` JSON.
+
 ## Analyst endpoints (Phase 7 — Fundamental)
 
 `GET /analysts/fundamental/health` returns `{"status":"healthy","detail":"deterministic offline fundamental formulas"}`.

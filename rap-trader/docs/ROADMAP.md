@@ -25,3 +25,6 @@ Market Intelligence Feature Platform: deterministic, immutable feature snapshots
 # Phase 7 — Fundamental Analyst
 
 Implemented: strict point-in-time financial models, deterministic normalization and formula services, shared evidence generation, contradiction-aware synthesis, generic API registration, offline CLI JSON input, safety checks, and documentation. See [FUNDAMENTAL_ANALYST.md](FUNDAMENTAL_ANALYST.md) and [PHASE_07_FUNDAMENTAL_ANALYST.md](phases/PHASE_07_FUNDAMENTAL_ANALYST.md).
+# Phase 7.5 — complete
+
+The analyst platform is consolidated behind `BaseAnalyst`, with one freshness, validation, confidence, and trace implementation. Mock, Technical, and Fundamental analysts retain backward-compatible APIs and now all emit provenance traces. Phase 8 is not part of this work.

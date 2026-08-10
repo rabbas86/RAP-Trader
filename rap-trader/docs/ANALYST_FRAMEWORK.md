@@ -25,3 +25,8 @@ All indicator formulas are computed once in MIFP feature generators; the Technic
 ## Phase 7 — Fundamental Analyst
 
 The fundamental analyst consumes caller-supplied point-in-time financial statements and produces Phase 5 `AnalystOpinion` objects via the same evidence/synthesis contracts. It evaluates growth, profitability, cash flow, balance-sheet strength, capital efficiency, valuation, earnings quality, and shareholder capital allocation. ROIC, earnings-quality ratings, and all other metrics use documented deterministic formulas with no network access, no LLM, and no model download. See `docs/FUNDAMENTAL_ANALYST.md`.
+# Phase 7.5 shared implementation
+
+The framework is implemented in `app/services/analyst/framework/`. `BaseAnalyst` supplies default input validation, health, metadata, freshness, evidence validation, confidence assessment, deterministic trace storage, fail-safe insufficient opinions, and error translation. Existing imports from `app.services.analyst.service` remain compatible.
+
+Specialists implement their supported inputs and domain analysis. The complete lifecycle is Validation → Normalization → Analysis → Evidence → Confidence → Opinion → Trace → Output. A trace is available through `trace_for(opinion_id)` for successful and insufficient opinions.

@@ -59,3 +59,6 @@ The Phase 7 Fundamental Analyst (`app/services/fundamental_analysis/service.py`)
 - `app/services/analyst/service.py` — analyst registry (auto-registers `"fundamental"`)
 
 The fundamental analyst does **not** consume MIFP `FeatureSnapshot` — accounting analysis is independent of engineered market features. Market-derived inputs (price, market cap, EV) are optional and caller-supplied in the `CompanyFundamentals` payload. See `docs/FUNDAMENTAL_ANALYST.md`.
+# Phase 7.5 analyst lifecycle
+
+The canonical analyst framework lives in `app/services/analyst/framework/`. `BaseAnalyst` coordinates Validation → Normalization → Analysis → Evidence → Confidence → Opinion → Trace → Output, while specialist packages own only their domain calculations and evidence semantics. Shared services are re-exported through the legacy analyst service module.

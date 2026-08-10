@@ -38,3 +38,6 @@ The Market Intelligence Feature Platform (MIFP) is research-only and does not co
 # Fundamental analyst (Phase 7)
 
 The fundamental analyst is an offline research component. Caller-supplied filings are filtered by `available_at` before analysis, including restatements, to prevent lookahead. It performs no network access, uses no LLM or downloaded model, and has no dependency on risk, portfolio, committee, chairman, brokerage, or execution services. Its outputs use the Phase 5 evidence/opinion contracts and are always research-only, unsuitable for live trading, and never decision-ready. It cannot create orders, calculate quantities, allocate capital, or express BUY/SELL instructions.
+# Phase 7.5 consolidation boundary
+
+The shared analyst lifecycle remains deterministic, offline, research-only, not decision-ready, and unsuitable for live trading. Consolidation adds no broker, execution, portfolio, risk-engine, investment-committee, chairman, live-trading, network, or LLM dependency. Traces record provenance only and cannot trigger actions.
