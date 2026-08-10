@@ -98,3 +98,10 @@ Key boundaries:
 - **No data platform → network/LLM/model download.** All adapters are offline-capable by default.
 
 See `docs/DATA_PLATFORM.md` and `docs/phases/PHASE_08A_UNIFIED_DATA_PLATFORM.md`.
+# Phase 8B — Macro Economist
+
+The Phase 8B Macro Economist (`app/services/macro_analysis/`) is a deterministic, offline, research-only specialist analyst. It consumes `ResearchDataSnapshot` from the Phase 8A platform and produces Phase 5 `AnalystOpinion` objects through the Phase 7.5 lifecycle. It auto-registers as `"macro"` in `AnalystService` and exposes `GET /analysts/macro/health`, `GET /analysts/macro/metadata`, `POST /analysts/macro/analyze`, and `python -m app.cli.analyst --analyst macro`.
+
+The analyst is structured around 8 domain-specific specialist services (inflation, growth, employment, liquidity, monetary policy, yield curve, credit, business cycle), each no larger than ~60 lines, that produce deterministic `MacroSignal` values. `MacroRegimeService` fuses these into a single `MacroRegime` using a priority-ordered rule set. `MacroEvidenceFactory` converts signals into Phase 5 `EvidenceItem` records. `MacroOpinionSynthesisService` maps regime + signals to an `AnalysisDirection` with conflict-aware confidence.
+
+Key safety properties: `research_only=true`, `suitable_for_live_trading=false`, `decision_ready=false` on every opinion; no network/LLM/model-download/broker/execution/risk/portfolio/committee imports; point-in-time via `ResearchDataSnapshotService.create_snapshot()` which applies `PointInTimeRevisionService.select()`. See `docs/MACRO_ECONOMIST.md` and `docs/phases/PHASE_08B_MACRO_ECONOMIST.md`.

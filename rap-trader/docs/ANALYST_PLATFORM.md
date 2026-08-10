@@ -12,3 +12,16 @@ portfolio, risk, committee, network, or model services. Future analysts can cons
 `ResearchDataSnapshot` from the Phase 8A Unified Research Data Platform
 (see `docs/DATA_PLATFORM.md`) as an additional point-in-time-safe data source,
 without duplicating data-platform normalization or quality logic.
+
+## Analysts
+
+| Analyst | Role | Input | Status |
+|---|---|---|---|
+| Mock | MOCK | Synthetic | Phase 7.5 |
+| Technical | TECHNICAL | FeatureSnapshot (MIFP) | Phase 6 |
+| Fundamental | FUNDAMENTAL | CompanyFundamentals | Phase 7 |
+| Macro | MACRO | ResearchDataSnapshot (Phase 8A) | Phase 8B |
+
+The Macro Analyst (`app/services/macro_analysis/`) is a deterministic, offline,
+research-only specialist that classifies the macro-economic regime from a
+`ResearchDataSnapshot`. See `docs/MACRO_ECONOMIST.md`.

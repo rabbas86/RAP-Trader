@@ -271,9 +271,10 @@ class AnalystService:
     def __init__(self, analysts: list[Analyst] | None = None, store: OpinionStore | None = None) -> None:
         if analysts is None:
             from app.services.fundamental_analysis.service import FundamentalAnalyst
+            from app.services.macro_analysis.service import MacroAnalyst
             from app.services.technical_analysis.service import TechnicalAnalyst
 
-            values = [MockAnalyst(), TechnicalAnalyst(), FundamentalAnalyst()]
+            values = [MockAnalyst(), TechnicalAnalyst(), FundamentalAnalyst(), MacroAnalyst()]
         else:
             values = analysts
         self.analysts = {item.metadata().analyst_id: item for item in values}

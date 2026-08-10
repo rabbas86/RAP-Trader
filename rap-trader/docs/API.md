@@ -87,6 +87,14 @@ Phase 7.5 preserves these endpoints and schemas while consolidating their lifecy
 
 `POST /analysts/fundamental/analyze` accepts an `AnalystRequest` whose `extra_context` contains a `fundamentals` key with a `CompanyFundamentals` JSON document. The analyst normalizes, validates, analyzes, and returns an `AnalystOpinion` with evidence grouped by category (growth, profitability, cash_flow, balance_sheet, capital_efficiency, valuation, earnings_quality, shareholder, data_quality). No market data is fetched; all inputs are caller-supplied.
 
+## Analyst endpoints (Phase 8B — Macro)
+
+`GET /analysts/macro/health` returns `{"status":"healthy","detail":"deterministic offline macro formulas over ResearchDataSnapshot"}`.
+
+`GET /analysts/macro/metadata` returns analyst capabilities including `analyst_id="macro"`, `role="MACRO"`, `research_only=true`, `suitable_for_live_trading=false`, `decision_ready=false`, and supported timeframes (`1d`, `1w`, `1mo`, `1q`).
+
+`POST /analysts/macro/analyze` accepts an `AnalystRequest` whose `extra_context` contains a `snapshot` key with a `ResearchDataSnapshot` JSON document. The analyst extracts observations, runs 8 specialist services, classifies a `MacroRegime`, synthesizes an `AnalysisDirection`, and returns an `AnalystOpinion`. No network, no LLM, no model download. All evidence items use the `macroeconomic` evidence type.
+
 ## Data Platform endpoints (Phase 8A)
 
 The Unified Research Data Platform provides read-only, offline, point-in-time-safe data endpoints. See [DATA_PLATFORM.md](../DATA_PLATFORM.md).

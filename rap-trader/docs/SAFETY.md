@@ -53,3 +53,15 @@ The Unified Research Data Platform (Phase 8A) is research-only and does not conn
 - **No trading decisions.** All outputs carry `research_only=True` and `suitable_for_live_trading=False`. `SnapshotRequest` and `NormalizedDataRecord` both reject `suitable_for_live_trading=True` at validation time.
 - **No analyst opinions.** The platform provides normalized data, not analysis. No Macro Analyst opinions, no bullish/bearish direction, no sentiment, and no News Analyst output.
 - **Point-in-time enforcement.** The snapshot model validator rejects any record whose `available_at` is after the snapshot `as_of`. The revision engine rejects future revisions. Store queries filter by `available_at <= as_of`.
+# Phase 8B safety — Macro Economist
+
+The Macro Economist (`app/services/macro_analysis/`) is a deterministic, offline, research-only specialist analyst. It consumes `ResearchDataSnapshot` from the Phase 8A platform and produces Phase 5 `AnalystOpinion` objects. It does not connect to any execution, risk, portfolio, broker, committee, or Chairman service.
+
+- **No broker or execution.** The macro source tree contains no imports of `Broker`, `PaperBroker`, `ExecutionService`, `OrderRequest`, `RiskEngine`, `PortfolioManager`, `InvestmentCommittee`, `Committee`, or `Chairman`. Tests assert this with a forbidden-token scan.
+- **No LLM or model download.** All trend classification uses deterministic threshold formulas. No neural models, LLMs, or network calls occur in the default path.
+- **No network.** No `requests.get`, `urllib`, or `httpx` calls in any macro source file.
+- **No credentials.** No API keys, tokens, passwords, or secrets are stored or transmitted.
+- **No trading decisions.** Every opinion carries `research_only=True`, `suitable_for_live_trading=False`, and `decision_ready=False` with a `NO_TRADING` limitation. No BUY/SELL direction, quantity, or allocation is emitted.
+- **Point-in-time enforcement.** The Macro Analyst consumes only `ResearchDataSnapshot` records whose `available_at ≤ as_of`, enforced by the Phase 8A revision engine. It never queries raw providers directly and never uses latest-known revisions.
+- **Freshness enforcement.** `EvidenceValidationService` rejects observations older than `stale_threshold` (default 7 days) with an `EXPIRED_EVIDENCE` warning.
+- **Data sparsity safety.** Snapshots with fewer than 2 macro series produce `INSUFFICIENT_EVIDENCE` rather than a forced directional call.

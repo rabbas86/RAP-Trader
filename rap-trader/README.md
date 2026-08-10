@@ -86,3 +86,17 @@ Read-only endpoints are `GET /data-platform/health`, `GET /data-platform/sources
 `GET /data-platform/calendar`, and `POST /data-platform/snapshot`. The CLI is
 `python -m app.cli.data_platform`. See [Data Platform docs](docs/DATA_PLATFORM.md) and
 [Phase 8A plan](docs/phases/PHASE_08A_UNIFIED_DATA_PLATFORM.md).
+
+## Macro Economist (Phase 8B)
+
+The Macro Economist is a deterministic, offline, research-only specialist analyst that
+classifies the macro-economic regime from a `ResearchDataSnapshot`. It runs 8 deterministic
+domain services (inflation, growth, employment, liquidity, monetary policy, yield curve,
+credit, business cycle), fuses them into a `MacroRegime`, and synthesizes an `AnalysisDirection`.
+All outputs carry `research_only=true`, `suitable_for_live_trading=false`, and
+`decision_ready=false`.
+
+Endpoints: `GET /analysts/macro/health`, `GET /analysts/macro/metadata`,
+`POST /analysts/macro/analyze`. CLI: `python -m app.cli.analyst --analyst macro`.
+See [Macro Economist docs](docs/MACRO_ECONOMIST.md) and
+[Phase 8B plan](docs/phases/PHASE_08B_MACRO_ECONOMIST.md).

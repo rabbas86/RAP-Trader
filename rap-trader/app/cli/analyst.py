@@ -26,6 +26,7 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--asset-class", default="equity")
     result.add_argument("--input-json", help="Optional JSON object merged into the analyst request")
     result.add_argument("--input-fundamentals", help="Path to a CompanyFundamentals JSON document")
+    result.add_argument("--input-snapshot", help="Path to a ResearchDataSnapshot JSON document (for the macro analyst)")
     return result
 
 
@@ -40,6 +41,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             result = parser()
             result.error("--input-fundamentals is required for the fundamental analyst")
         extra_context["fundamentals"] = json.loads(Path(args.input_fundamentals).read_text(encoding="utf-8"))
+    if analyst_id == "macro":
+        if not args.input_snapshot:
+            result = parser()
+            result.error("--input-snapshot is required for the macro analyst")
+        extra_context["snapshot"] = json.loads(Path(args.input_snapshot).read_text(encoding="utf-8"))
+        if args.asset_class == "equity":
+            args.asset_class = "macro"
     request = AnalystRequest(
         analyst_id=analyst_id,
         ticker=args.ticker,
@@ -72,6 +80,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                     f"{level.level_type} {level.price:.4f} touches={level.touch_count} broken={level.broken}" for level in snapshot.levels
                 )
             )
+        if opinion.analyst_id == "macro":
+            regimes = [item.summary for item in opinion.evidence if "regime" in item.summary.lower()]
+            if regimes:
+                print(f"Regime: {regimes[0]}")
         print(f"Assumptions: {[x.description for x in opinion.assumptions]}")
         print(f"Warnings: {[x.message for x in opinion.warnings]}")
         print(f"Limitations: {[x.message for x in opinion.limitations]}")
