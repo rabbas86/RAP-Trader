@@ -29,3 +29,6 @@ Use `--summary` for a compact report and `--output PATH` to write the result. Id
 
 All portfolio contracts are strict and immutable. Their safety flags are fixed to `research_only=true`, `suitable_for_live_trading=false`, and `decision_ready=false`. Weights and confidence values reject non-finite numbers. Snapshot and proposal timestamps cannot be in the future.
 
+# Phase 11 downstream review
+
+A `PortfolioProposal` may be passed unchanged to the offline Risk Officer. Risk review never rewrites proposal positions or constraints and cannot send the proposal for execution.

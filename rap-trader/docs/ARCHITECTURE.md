@@ -116,3 +116,6 @@ Key safety properties: `research_only=True`, `suitable_for_live_trading=False`, 
 # Phase 10 portfolio boundary
 
 The portfolio manager consumes immutable analyst opinions and current research positions. Its deterministic pipeline ends at `PortfolioProposal`; it is isolated from broker, execution, order, and risk-engine services. See [Portfolio Manager](PORTFOLIO_MANAGER.md).
+# Phase 11 risk boundary
+
+`app/services/risk/` is an offline portfolio-review component downstream of the Portfolio Manager. It is separate from the Phase 1 `risk_engine`, consumes proposals read-only, and has no dependency on execution or governance components. Pure calculators feed limit evaluation, stress testing, an assessment, and a non-actionable research decision.

@@ -68,3 +68,6 @@ The Macro Economist (`app/services/macro_analysis/`) is a deterministic, offline
 # Portfolio-manager safety
 
 Phase 10 emits research weights only. Safety flags cannot be enabled, future inputs are rejected, and no portfolio module imports or calls broker, paper-broker, execution, order-request, or risk-engine facilities. It performs no network, LLM, or model-download activity.
+# Risk Officer safety boundary
+
+Phase 11 can only evaluate immutable research proposals. Its outputs are permanently non-live and non-decision-ready. It performs no network access, data retrieval, executable-size estimation, transaction-cost estimation, instruction construction, or trade placement. Missing evidence lowers data quality or yields `insufficient_data`; it is never invented.

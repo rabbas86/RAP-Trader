@@ -196,3 +196,6 @@ feature computation. See `docs/FUNDAMENTAL_ANALYST.md`.
 # Phase 10 integration
 
 The portfolio manager does not fetch or generate features. Analyst opinions may be based on feature snapshots, but Phase 10 consumes only the frozen opinion contract and records its provenance.
+# Risk Officer usage
+
+Phase 11 does not fetch or calculate Feature Platform data implicitly. Any historical inputs must be supplied explicitly and pass point-in-time validation.

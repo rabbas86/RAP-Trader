@@ -103,3 +103,6 @@ See [Macro Economist docs](docs/MACRO_ECONOMIST.md) and
 # Phase 10 portfolio research
 
 RAP-Trader includes a deterministic, offline, research-only portfolio manager. It produces constrained `PortfolioProposal` weights—never orders or execution instructions. See [Portfolio Manager](docs/PORTFOLIO_MANAGER.md).
+# Phase 11 Risk Officer
+
+The platform includes an offline, deterministic portfolio Risk Officer. It reviews Phase 10 proposals and emits research-only assessments and decisions without execution authority. See [docs/RISK_OFFICER.md](docs/RISK_OFFICER.md).

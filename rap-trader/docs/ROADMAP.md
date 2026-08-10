@@ -44,3 +44,6 @@ Deterministic, offline, research-only news analyst consuming Phase 8A data platf
 # Phase 10 — Portfolio Manager
 
 Implemented: deterministic offline opinion aggregation, conviction scoring, constrained research weights, turnover limits, point-in-time correlation, diversification, provenance, trace, API, and CLI. See [phase record](phases/PHASE_10_PORTFOLIO_MANAGER.md).
+# Phase 11
+
+The deterministic, offline Risk Officer is implemented with portfolio metrics, limits, stress testing, provenance, API/CLI access, and safety tests. It does not start or imply Phase 12.

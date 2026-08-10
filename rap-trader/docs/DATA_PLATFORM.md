@@ -338,3 +338,6 @@ provides lightweight helpers/adapters so future analysts can consume
 # Phase 10 integration
 
 Portfolio correlation accepts supplied `HistoricalBarsResult` values and applies a strict point-in-time cutoff. It neither invokes a data provider nor fabricates correlations when aligned samples are insufficient.
+# Risk Officer usage
+
+Phase 11 is a consumer of caller-supplied normalized, point-in-time data only. It performs no retrieval. Stale, missing, future, or insufficient history is surfaced in data-quality findings and may force an `insufficient_data` decision.

@@ -28,3 +28,6 @@ research-only specialist that classifies the macro-economic regime from a
 # Portfolio-manager consumer
 
 Phase 10 is a downstream, research-only consumer of `AnalystOpinion`. It preserves accepted opinion IDs in proposal provenance and the construction trace; insufficient-evidence opinions are ignored and future or duplicate opinions are rejected.
+# Risk review relationship
+
+Analyst opinions influence Phase 10 proposals, but confidence cannot override a Phase 11 hard risk limit. The Risk Officer consumes the proposal and its point-in-time provenance; it does not call analysts or language models.

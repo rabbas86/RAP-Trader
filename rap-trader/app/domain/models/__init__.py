@@ -114,7 +114,21 @@ from app.domain.models.market_data import (
 from app.domain.models.order import OrderRequest, OrderResult
 from app.domain.models.portfolio import PortfolioContext
 from app.domain.models.prediction import KronosPrediction
-from app.domain.models.risk import RiskAssessment  # noqa: F401  (re-exported for Phase 1 consumers)
+from app.domain.models.risk import (
+    LegacyRiskAssessment,
+    RiskAssessment,
+    RiskBreach,
+    RiskCategory,
+    RiskConstraintSet,
+    RiskDecision,
+    RiskDecisionType,
+    RiskLimit,
+    RiskMetric,
+    RiskModification,
+    RiskSeverity,
+    StressResult,
+    StressScenario,
+)
 from app.domain.models.technical import MarketStructureState, SwingPoint, TechnicalAnalysisSnapshot, TechnicalIndicatorValue, TechnicalLevel
 
 __all__ = [
@@ -192,6 +206,7 @@ __all__ = [
     "KronosModelMetadata",
     "KronosPrediction",
     "KronosProviderHealth",
+    "LegacyRiskAssessment",
     "MarketDataError",
     "MarketDataErrorCode",
     "MarketRegime",
@@ -213,10 +228,22 @@ __all__ = [
     "ResearchSignal",
     "ResearchSignalRow",
     "RevisionPolicy",
+    "RiskAssessment",
+    "RiskBreach",
+    "RiskCategory",
+    "RiskConstraintSet",
+    "RiskDecision",
+    "RiskDecisionType",
+    "RiskLimit",
+    "RiskMetric",
+    "RiskModification",
+    "RiskSeverity",
     "SessionPolicy",
     "SnapshotErrorCode",
     "SnapshotProvenance",
     "SnapshotRequest",
+    "StressResult",
+    "StressScenario",
     "SwingPoint",
     "Symbol",
     "TechnicalAnalysisSnapshot",

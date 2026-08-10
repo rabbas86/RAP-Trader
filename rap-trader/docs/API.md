@@ -124,3 +124,6 @@ Snapshots are research-only (`research_only=true`, `suitable_for_live_trading=fa
 # Portfolio API (Phase 10)
 
 `GET /portfolio/health` and `/metadata` describe the offline research component. `POST /portfolio/validate` safely validates a proposal request; `POST /portfolio/propose` returns research weights and full provenance. No execute, rebalance, or order route exists. See [Portfolio Manager](PORTFOLIO_MANAGER.md).
+# Risk Officer endpoints
+
+Phase 11 exposes `GET /risk/health`, `GET /risk/metadata`, `POST /risk/assess`, and `POST /risk/review`. Requests supply a complete `PortfolioProposal` plus optional historical bars, liquidity observations, and constraints. Responses are research-only; there are no risk execution endpoints.
