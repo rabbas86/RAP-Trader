@@ -10,7 +10,7 @@ The included `MockAnalyst` is deterministic and offline. Confidence is not certa
 
 Opinion aggregation is descriptive only. It reports agreement, disagreement, direction counts, orientation, overlap, freshness, missing roles, and minority views. Every opinion and aggregate is research-only, unsuitable for live trading, and not decision-ready. Analysts cannot create trades.
 
-Technical Analyst work begins in Phase 6. The Risk Officer, Investment Committee, and Chairman remain future phases. A prior committee-fusion idea is isolated under `app/experimental/committee_fusion` and is not production code.
+Technical Analyst work begins in Phase 6. The Phase 11 Risk Officer is implemented as deterministic portfolio-proposal research review. Investment Committee and Chairman remain future phases. A prior committee-fusion idea is isolated under `app/experimental/committee_fusion` and is not production code.
 
 ## Phase 6.5 MIFP integration
 

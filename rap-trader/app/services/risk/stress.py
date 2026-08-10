@@ -7,14 +7,16 @@ from app.domain.models.risk import StressResult, StressScenario
 
 
 class StressTestingService:
+    VERSION = "phase-11-stress-v2"
+
     def scenarios(self) -> tuple[StressScenario, ...]:
         definitions = (
             ("market_down_10", {"market": -0.10}),
             ("market_down_20", {"market": -0.20}),
             ("top_position_down_25", {"top_position": -0.25}),
             ("sector_down_20", {"largest_sector": -0.20}),
-            ("volatility_double", {"volatility": -0.05}),
-            ("correlation_spike", {"correlation": -0.08}),
+            ("approximate_volatility_spike", {"volatility_sensitivity": -0.05}),
+            ("correlation_to_one", {"correlation": -0.08}),
             ("credit_spreads_widen", {"credit": -0.08}),
             ("rates_up_100bps", {"rates": -0.04}),
             ("liquidity_haircut_50", {"liquidity": -0.10}),
@@ -24,10 +26,11 @@ class StressTestingService:
             StressScenario(
                 scenario_id=name,
                 name=name.replace("_", " "),
-                description="Deterministic research sensitivity",
+                description="Deterministic approximate research sensitivity; hypothetical, not a forecast",
                 shocks=shocks,
                 source="RAP-Trader Phase 11",
-                assumptions=("Linear impact approximation", "Not a forecast"),
+                version=self.VERSION,
+                assumptions=("Linear impact approximation", "Hypothetical, not a forecast"),
             )
             for name, shocks in definitions
         )

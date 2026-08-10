@@ -47,3 +47,5 @@ Implemented: deterministic offline opinion aggregation, conviction scoring, cons
 # Phase 11
 
 The deterministic, offline Risk Officer is implemented with portfolio metrics, limits, stress testing, provenance, API/CLI access, and safety tests. It does not start or imply Phase 12.
+
+This portfolio-proposal research review is separate from the Phase 1 execution/trade-level `RiskEngine`. Investment Committee and Chairman remain future phases.

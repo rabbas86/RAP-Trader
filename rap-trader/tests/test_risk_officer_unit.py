@@ -22,6 +22,7 @@ from app.domain.models.risk import (
     RiskConstraintSet,
     RiskDecisionType,
     RiskMetric,
+    RiskModificationType,
     RiskSeverity,
     StressScenario,
 )
@@ -29,8 +30,10 @@ from app.services.risk.concentration import ConcentrationRiskService
 from app.services.risk.config import RiskOfficerConfig
 from app.services.risk.correlation import CorrelationRiskService
 from app.services.risk.data_quality import RiskDataQualityService
+from app.services.risk.decision import RiskDecisionService
 from app.services.risk.drawdown import DrawdownRiskService
 from app.services.risk.exposure import ExposureRiskService
+from app.services.risk.limits import RiskLimitEvaluator
 from app.services.risk.liquidity import LiquidityRiskService
 from app.services.risk.service import RiskOfficerService
 from app.services.risk.stress import StressTestingService
@@ -328,6 +331,17 @@ def test_drawdown_recovery_duration() -> None:
     assert result["recovery_duration"]["AAA"] is not None
 
 
+def test_drawdown_empty_one_bar_and_no_history_are_unavailable() -> None:
+    one = _bars("AAA", [100])
+    empty = HistoricalBarsResult.model_construct(**{**one.__dict__, "bars": []})
+    empty_result = DrawdownRiskService().calculate([empty])
+    one_result = DrawdownRiskService().calculate([one])
+    no_history_result = DrawdownRiskService().calculate([])
+    assert not empty_result["valid"] and empty_result["max_drawdown"] is None and empty_result["limitations"]
+    assert not one_result["valid"] and one_result["max_drawdown"] is None and one_result["limitations"]
+    assert not no_history_result["valid"] and no_history_result["max_drawdown"] is None
+
+
 # ---------------------------------------------------------------------------
 # VaR / CVaR
 # ---------------------------------------------------------------------------
@@ -450,8 +464,8 @@ def test_stress_scenarios_count_and_non_forecast_assumptions() -> None:
         "market_down_20",
         "top_position_down_25",
         "sector_down_20",
-        "volatility_double",
-        "correlation_spike",
+        "approximate_volatility_spike",
+        "correlation_to_one",
         "credit_spreads_widen",
         "rates_up_100bps",
         "liquidity_haircut_50",
@@ -497,6 +511,11 @@ def _within_bounds_constraints() -> RiskConstraintSet:
         max_cvar_95=1.0,
         max_hhi=1.0,
         max_pairwise_correlation=1.0,
+        maximum_average_correlation=1.0,
+        max_var_99=1.0,
+        max_cvar_99=1.0,
+        minimum_liquidity_score=0.0,
+        maximum_unknown_metadata_weight=1.0,
         min_cash_weight=0.0,
         min_data_quality_score=0.0,
         catastrophic_stress_loss=1.0,
@@ -603,7 +622,65 @@ def test_modification_recommendations_built_from_breaches() -> None:
     proposal = _proposal(("AAA", 0.45, "tech", "software"), ("BBB", 0.45, "tech", "hardware"))
     _, decision = _service(RiskConstraintSet(max_sector_weight=0.4)).review(proposal, history, liquidity)
     types = {item.modification_type for item in decision.required_modifications}
-    assert "reduce_risk" in types
+    assert "reduce_sector_exposure" in types
+
+
+def test_major_breach_categories_have_typed_modifications() -> None:
+    expected = {
+        RiskCategory.CONCENTRATION: RiskModificationType.REDUCE_SYMBOL_WEIGHT,
+        RiskCategory.SECTOR: RiskModificationType.REDUCE_SECTOR_EXPOSURE,
+        RiskCategory.INDUSTRY: RiskModificationType.REDUCE_INDUSTRY_EXPOSURE,
+        RiskCategory.ASSET_CLASS: RiskModificationType.REDUCE_ASSET_CLASS_EXPOSURE,
+        RiskCategory.CASH: RiskModificationType.INCREASE_CASH,
+        RiskCategory.GROSS_EXPOSURE: RiskModificationType.REDUCE_GROSS_EXPOSURE,
+        RiskCategory.NET_EXPOSURE: RiskModificationType.REDUCE_NET_EXPOSURE,
+        RiskCategory.SHORT_EXPOSURE: RiskModificationType.REDUCE_SHORT_EXPOSURE,
+        RiskCategory.TURNOVER: RiskModificationType.REDUCE_TURNOVER,
+        RiskCategory.CORRELATION: RiskModificationType.REDUCE_CORRELATED_CLUSTER,
+        RiskCategory.LIQUIDITY: RiskModificationType.REMOVE_OR_REDUCE_ILLIQUID_ASSET,
+        RiskCategory.DATA_QUALITY: RiskModificationType.IMPROVE_DATA_QUALITY,
+        RiskCategory.STALE_DATA: RiskModificationType.REFRESH_STALE_DATA,
+        RiskCategory.VAR: RiskModificationType.REDUCE_VAR,
+        RiskCategory.CVAR: RiskModificationType.REDUCE_CVAR,
+        RiskCategory.VOLATILITY: RiskModificationType.REDUCE_VOLATILITY,
+        RiskCategory.DRAWDOWN: RiskModificationType.REDUCE_DRAWDOWN_EXPOSURE,
+    }
+    assert all(RiskDecisionService.MODIFICATION_TYPES[category] is value for category, value in expected.items())
+
+
+def test_new_limit_metrics_and_equality_boundaries() -> None:
+    rules = RiskConstraintSet(
+        maximum_average_correlation=0.5,
+        maximum_pair_correlation=0.8,
+        maximum_var_95=0.05,
+        maximum_cvar_95=0.08,
+        maximum_var_99=0.10,
+        maximum_cvar_99=0.15,
+        minimum_liquidity_score=0.4,
+        maximum_illiquid_weight=0.2,
+        maximum_unknown_metadata_weight=0.1,
+    )
+    definitions = (
+        (RiskCategory.CORRELATION, "weighted_average_correlation", 0.51),
+        (RiskCategory.CORRELATION, "max_pairwise_correlation", 0.81),
+        (RiskCategory.VAR, "var_95", 0.06),
+        (RiskCategory.CVAR, "cvar_95", 0.09),
+        (RiskCategory.VAR, "var_99", 0.11),
+        (RiskCategory.CVAR, "cvar_99", 0.16),
+        (RiskCategory.LIQUIDITY, "liquidity_score", 0.39),
+        (RiskCategory.LIQUIDITY, "illiquid_weight", 0.21),
+        (RiskCategory.DATA_QUALITY, "unknown_metadata_weight", 0.11),
+    )
+    metrics = tuple(
+        RiskMetric(metric_id=name, category=category, name=name, value=value, units="ratio", as_of=AS_OF, source_fingerprint="x")
+        for category, name, value in definitions
+    )
+    assert {item.metric_name for item in RiskLimitEvaluator().evaluate(metrics, rules, "x")} == {name for _, name, _ in definitions}
+    boundaries = tuple(
+        metric.model_copy(update={"value": threshold})
+        for metric, threshold in zip(metrics, (0.5, 0.8, 0.05, 0.08, 0.10, 0.15, 0.4, 0.2, 0.1), strict=True)
+    )
+    assert RiskLimitEvaluator().evaluate(boundaries, rules, "x") == ()
 
 
 # ---------------------------------------------------------------------------
@@ -632,6 +709,31 @@ def test_assessment_deterministic_ids() -> None:
     assert first.assessment_id == second.assessment_id
     expected = str(uuid5(NAMESPACE_URL, f"risk-assessment:{proposal.proposal_id}:{first.provenance['input_fingerprint']}"))
     assert first.assessment_id == expected
+
+
+def test_expanded_provenance_fingerprints_windows_and_scenarios() -> None:
+    proposal = _proposal(("AAA", 0.4, "tech", "software"), ("BBB", 0.4, "finance", "banking"))
+    market = [_bars("AAA", [100 + i for i in range(31)]), _bars("BBB", [80 + i for i in range(31)])]
+    liquidity = {"AAA": {"average_dollar_volume": 5_000_000}, "BBB": {"average_dollar_volume": 2_000_000}}
+    first = _service().assess(proposal, market, liquidity)
+    same = _service().assess(proposal, market, liquidity)
+    assert first.provenance == same.provenance
+    assert first.provenance["proposal_id"] == proposal.proposal_id
+    assert first.provenance["proposal_algorithm_version"] == proposal.algorithm_version
+    windows = first.provenance["historical_sample_windows"]
+    assert windows["AAA"] == {
+        "start": market[0].bars[0].timestamp.isoformat(),
+        "end": market[0].bars[-1].timestamp.isoformat(),
+        "sample_count": 31,
+    }
+    changed_policy = _service(RiskConstraintSet(max_var_95=0.06)).assess(proposal, market, liquidity)
+    assert changed_policy.provenance["risk_policy_fingerprint"] != first.provenance["risk_policy_fingerprint"]
+    changed_bar = market[0].bars[-1].model_copy(update={"close": market[0].bars[-1].close + 1.0})
+    changed_history = [market[0].model_copy(update={"bars": [*market[0].bars[:-1], changed_bar]}), market[1]]
+    changed_market = _service().assess(proposal, changed_history, liquidity)
+    assert changed_market.provenance["market_data_fingerprints"]["AAA"] != first.provenance["market_data_fingerprints"]["AAA"]
+    assert first.provenance["stress_scenario_version"] == StressTestingService.VERSION
+    assert {item["scenario_id"] for item in first.provenance["stress_scenarios"]} >= {"correlation_to_one"}
 
 
 def test_trace_dag_validity() -> None:

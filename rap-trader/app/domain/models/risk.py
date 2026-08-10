@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.domain.models.analyst import AnalysisTrace
 from app.domain.models.market_data import UtcDatetime, _require_aware_utc
@@ -36,6 +36,27 @@ class RiskDecisionType(StrEnum):
     REJECT = "reject"
     REQUIRE_MODIFICATION = "require_modification"
     INSUFFICIENT_DATA = "insufficient_data"
+
+
+class RiskModificationType(StrEnum):
+    REDUCE_SYMBOL_WEIGHT = "reduce_symbol_weight"
+    REDUCE_SECTOR_EXPOSURE = "reduce_sector_exposure"
+    REDUCE_INDUSTRY_EXPOSURE = "reduce_industry_exposure"
+    REDUCE_ASSET_CLASS_EXPOSURE = "reduce_asset_class_exposure"
+    INCREASE_CASH = "increase_cash"
+    REDUCE_GROSS_EXPOSURE = "reduce_gross_exposure"
+    REDUCE_NET_EXPOSURE = "reduce_net_exposure"
+    REDUCE_SHORT_EXPOSURE = "reduce_short_exposure"
+    REDUCE_TURNOVER = "reduce_turnover"
+    REDUCE_CORRELATED_CLUSTER = "reduce_correlated_cluster"
+    REMOVE_OR_REDUCE_ILLIQUID_ASSET = "remove_or_reduce_illiquid_asset"
+    IMPROVE_DATA_QUALITY = "improve_data_quality"
+    REFRESH_STALE_DATA = "refresh_stale_data"
+    REDUCE_VAR = "reduce_var"
+    REDUCE_CVAR = "reduce_cvar"
+    REDUCE_VOLATILITY = "reduce_volatility"
+    REDUCE_DRAWDOWN_EXPOSURE = "reduce_drawdown_exposure"
+    OTHER = "other"
 
 
 class RiskCategory(StrEnum):
@@ -125,6 +146,7 @@ class StressScenario(_RiskModel):
     description: str = Field(min_length=1)
     shocks: dict[str, float]
     source: str = Field(min_length=1)
+    version: str = Field(default="1", min_length=1)
     deterministic: bool = True
     assumptions: tuple[str, ...] = ()
 
@@ -154,7 +176,7 @@ class StressResult(_RiskModel):
 
 
 class RiskModification(_RiskModel):
-    modification_type: str = Field(min_length=1)
+    modification_type: RiskModificationType
     symbol: str | None = None
     category: RiskCategory | None = None
     current_value: float = Field(allow_inf_nan=False)
@@ -172,11 +194,28 @@ class RiskConstraintSet(_ResearchOnly):
     max_hhi: float = Field(default=0.20, gt=0, le=1, allow_inf_nan=False)
     min_effective_positions: float = Field(default=5.0, gt=0, allow_inf_nan=False)
     max_portfolio_volatility: float = Field(default=0.30, gt=0, allow_inf_nan=False)
-    max_pairwise_correlation: float = Field(default=0.90, ge=-1, le=1, allow_inf_nan=False)
+    maximum_average_correlation: float = Field(default=0.75, ge=-1, le=1, allow_inf_nan=False)
+    max_pairwise_correlation: float = Field(
+        default=0.90,
+        ge=-1,
+        le=1,
+        allow_inf_nan=False,
+        validation_alias=AliasChoices("max_pairwise_correlation", "maximum_pair_correlation"),
+    )
     max_drawdown: float = Field(default=0.25, gt=0, le=1, allow_inf_nan=False)
-    max_var_95: float = Field(default=0.05, gt=0, le=1, allow_inf_nan=False)
-    max_cvar_95: float = Field(default=0.08, gt=0, le=1, allow_inf_nan=False)
-    max_illiquid_weight: float = Field(default=0.20, ge=0, le=1, allow_inf_nan=False)
+    max_var_95: float = Field(default=0.05, gt=0, le=1, allow_inf_nan=False, validation_alias=AliasChoices("max_var_95", "maximum_var_95"))
+    max_cvar_95: float = Field(
+        default=0.08, gt=0, le=1, allow_inf_nan=False, validation_alias=AliasChoices("max_cvar_95", "maximum_cvar_95")
+    )
+    max_var_99: float = Field(default=0.10, gt=0, le=1, allow_inf_nan=False, validation_alias=AliasChoices("max_var_99", "maximum_var_99"))
+    max_cvar_99: float = Field(
+        default=0.15, gt=0, le=1, allow_inf_nan=False, validation_alias=AliasChoices("max_cvar_99", "maximum_cvar_99")
+    )
+    minimum_liquidity_score: float = Field(default=0.50, ge=0, le=1, allow_inf_nan=False)
+    max_illiquid_weight: float = Field(
+        default=0.20, ge=0, le=1, allow_inf_nan=False, validation_alias=AliasChoices("max_illiquid_weight", "maximum_illiquid_weight")
+    )
+    maximum_unknown_metadata_weight: float = Field(default=0.10, ge=0, le=1, allow_inf_nan=False)
     max_gross_exposure: float = Field(default=1.25, gt=0, le=5, allow_inf_nan=False)
     max_net_exposure: float = Field(default=1.0, ge=0, le=5, allow_inf_nan=False)
     max_short_exposure: float = Field(default=0.20, ge=0, le=2, allow_inf_nan=False)
@@ -191,6 +230,8 @@ class RiskConstraintSet(_ResearchOnly):
     def ranges(self) -> RiskConstraintSet:
         if self.max_cvar_95 < self.max_var_95:
             raise ValueError("CVaR limit cannot be below VaR limit")
+        if self.max_cvar_99 < self.max_var_99:
+            raise ValueError("99% CVaR limit cannot be below 99% VaR limit")
         return self
 
 

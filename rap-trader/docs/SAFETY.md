@@ -20,7 +20,7 @@ Phase 6 is research-only, excludes observations after `as_of`, and has no broker
 - Default backtests use offline mock market data. No network access or model download occurs. LocalKronosProvider remains opt-in and lazily loaded.
 # Phase 5 analyst safety
 
-Analysts cannot create trades. Their outputs permanently declare `decision_ready=false`, `suitable_for_live_trading=false`, and `research_only=true`. Confidence is not certainty and uncalibrated confidence is capped. Availability timestamps prevent lookahead, freshness policies reject stale evidence, and provenance/trace validation prevents local path and credential leakage. Aggregation is descriptive only; Risk Officer, Committee, and Chairman are future phases.
+Analysts cannot create trades. Their outputs permanently declare `decision_ready=false`, `suitable_for_live_trading=false`, and `research_only=true`. Confidence is not certainty and uncalibrated confidence is capped. Availability timestamps prevent lookahead, freshness policies reject stale evidence, and provenance/trace validation prevents local path and credential leakage. Aggregation is descriptive only. The Phase 11 Risk Officer is implemented as portfolio-proposal research review; Investment Committee and Chairman remain future phases.
 
 # Phase 6.5 safety — Market Intelligence Feature Platform
 
@@ -71,3 +71,5 @@ Phase 10 emits research weights only. Safety flags cannot be enabled, future inp
 # Risk Officer safety boundary
 
 Phase 11 can only evaluate immutable research proposals. Its outputs are permanently non-live and non-decision-ready. It performs no network access, data retrieval, executable-size estimation, transaction-cost estimation, instruction construction, or trade placement. Missing evidence lowers data quality or yields `insufficient_data`; it is never invented.
+
+The Phase 1 `RiskEngine` remains execution/trade-level safety. The Phase 11 Risk Officer is a separate portfolio-proposal research reviewer and cannot authorize or construct trades. Investment Committee and Chairman remain future phases.

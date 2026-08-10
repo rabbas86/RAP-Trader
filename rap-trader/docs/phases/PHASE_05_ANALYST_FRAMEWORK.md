@@ -4,7 +4,7 @@
 
 Phase 5 supplies strict Pydantic opinion/evidence models, the `Analyst` interface, deterministic `MockAnalyst`, confidence and freshness assessment, evidence validation, trace DAG validation, descriptive opinion aggregation, safe stores, API endpoints, and CLI output.
 
-It defines contracts, not specialist intelligence. Technical Analyst begins in Phase 6. Risk Officer, Investment Committee, and Chairman remain future work. No analyst can create trades, quantities, allocations, orders, or risk approvals.
+It defines contracts, not specialist intelligence. Technical Analyst begins in Phase 6. The Phase 11 Risk Officer is now implemented as portfolio-proposal research review; Investment Committee and Chairman remain future work. No analyst can create trades, quantities, allocations, orders, or risk approvals.
 
 ## Safety boundaries
 

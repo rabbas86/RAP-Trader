@@ -2,6 +2,8 @@
 
 Phase 11 adds a deterministic, offline, portfolio-level risk review of a Phase 10 `PortfolioProposal`. It produces an immutable `RiskAssessment` and `RiskDecision`; both are permanently marked `research_only=true`, `suitable_for_live_trading=false`, and `decision_ready=false`.
 
+Phase 11 is implemented. It is distinct from the Phase 1 `RiskEngine`, which remains the execution/trade-level safety control. Investment Committee and Chairman remain future phases.
+
 ## Inputs and outputs
 
 The required input is the complete proposal. Optional caller-supplied inputs are point-in-time `HistoricalBarsResult` records, liquidity observations, and a `RiskConstraintSet`. The service never retrieves data. Missing, stale, future, or insufficient observations are reported rather than fabricated.
@@ -16,7 +18,7 @@ Correlation uses Pearson correlation on common timestamps. High-correlation clus
 
 ## Stress scenarios
 
-The ten fixed scenarios are `market_down_10`, `market_down_20`, `top_position_down_25`, `sector_down_20`, `volatility_double`, `correlation_spike`, `credit_spreads_widen`, `rates_up_100bps`, `liquidity_haircut_50`, and `combined_risk_off`. Impacts use transparent linear sensitivities to supplied exposure metadata. They do not model nonlinear pricing, market depth, fills, costs, or executable size.
+The ten fixed scenarios are `market_down_10`, `market_down_20`, `top_position_down_25`, `sector_down_20`, `approximate_volatility_spike`, canonical `correlation_to_one`, `credit_spreads_widen`, `rates_up_100bps`, `liquidity_haircut_50`, and `combined_risk_off`. The volatility scenario is explicitly an approximate fixed linear sensitivity; it does not claim to double portfolio variance. Impacts use transparent linear sensitivities to supplied exposure metadata. Every scenario is hypothetical, not a forecast. They do not model nonlinear pricing, market depth, fills, costs, or executable size.
 
 ## Decisions
 
@@ -31,4 +33,3 @@ python -m app.cli.risk --proposal-json proposal.json --history-json history.json
 API endpoints are `GET /risk/health`, `GET /risk/metadata`, `POST /risk/assess`, and `POST /risk/review`. POST bodies contain `proposal` and may contain `historical_bars`, `liquidity_inputs`, and `constraints`.
 
 The Risk Officer does not place trades, construct executable instructions, estimate fills, or connect to external services.
-

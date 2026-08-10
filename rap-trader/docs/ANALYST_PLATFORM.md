@@ -31,3 +31,5 @@ Phase 10 is a downstream, research-only consumer of `AnalystOpinion`. It preserv
 # Risk review relationship
 
 Analyst opinions influence Phase 10 proposals, but confidence cannot override a Phase 11 hard risk limit. The Risk Officer consumes the proposal and its point-in-time provenance; it does not call analysts or language models.
+
+Phase 11 Risk Officer is implemented. It is distinct from the Phase 1 `RiskEngine`: Phase 1 provides execution/trade-level safety, while Phase 11 performs research-only portfolio-proposal review. Investment Committee and Chairman remain future phases.

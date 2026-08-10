@@ -51,7 +51,15 @@ class RiskLimitEvaluator:
             ),
             ("volatility", RiskCategory.VOLATILITY, "portfolio_volatility", constraints.max_portfolio_volatility, RiskSeverity.HIGH, False),
             (
-                "correlation",
+                "average-correlation",
+                RiskCategory.CORRELATION,
+                "weighted_average_correlation",
+                constraints.maximum_average_correlation,
+                RiskSeverity.HIGH,
+                False,
+            ),
+            (
+                "pair-correlation",
                 RiskCategory.CORRELATION,
                 "max_pairwise_correlation",
                 constraints.max_pairwise_correlation,
@@ -61,7 +69,26 @@ class RiskLimitEvaluator:
             ("drawdown", RiskCategory.DRAWDOWN, "max_drawdown", constraints.max_drawdown, RiskSeverity.HIGH, False),
             ("var95", RiskCategory.VAR, "var_95", constraints.max_var_95, RiskSeverity.HIGH, False),
             ("cvar95", RiskCategory.CVAR, "cvar_95", constraints.max_cvar_95, RiskSeverity.HIGH, False),
+            ("var99", RiskCategory.VAR, "var_99", constraints.max_var_99, RiskSeverity.HIGH, False),
+            ("cvar99", RiskCategory.CVAR, "cvar_99", constraints.max_cvar_99, RiskSeverity.HIGH, False),
+            (
+                "liquidity-score",
+                RiskCategory.LIQUIDITY,
+                "liquidity_score",
+                constraints.minimum_liquidity_score,
+                "lt",
+                RiskSeverity.HIGH,
+                False,
+            ),
             ("illiquid", RiskCategory.LIQUIDITY, "illiquid_weight", constraints.max_illiquid_weight, RiskSeverity.CRITICAL, True),
+            (
+                "unknown-metadata",
+                RiskCategory.DATA_QUALITY,
+                "unknown_metadata_weight",
+                constraints.maximum_unknown_metadata_weight,
+                RiskSeverity.HIGH,
+                False,
+            ),
             ("gross", RiskCategory.GROSS_EXPOSURE, "gross_exposure", constraints.max_gross_exposure, RiskSeverity.CRITICAL, True),
             ("net", RiskCategory.NET_EXPOSURE, "net_exposure", constraints.max_net_exposure, RiskSeverity.CRITICAL, True),
             ("short", RiskCategory.SHORT_EXPOSURE, "short_exposure", constraints.max_short_exposure, RiskSeverity.CRITICAL, True),
@@ -104,7 +131,11 @@ class RiskLimitEvaluator:
                     severity=limit.severity,
                     hard_limit=limit.hard_limit,
                     description=limit.description,
-                    recommended_action=f"Reduce {metric.name} to at most {limit.threshold}",
+                    recommended_action=(
+                        f"Increase {metric.name} to at least {limit.threshold}"
+                        if limit.comparator in {"lt", "lte"}
+                        else f"Reduce {metric.name} to at most {limit.threshold}"
+                    ),
                     provenance=provenance,
                 )
             )

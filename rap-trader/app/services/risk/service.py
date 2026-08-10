@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from itertools import pairwise
+from typing import ClassVar
 from uuid import NAMESPACE_URL, uuid5
 
 from app.domain.models.market_data import HistoricalBarsResult
@@ -28,6 +29,17 @@ from app.services.risk.volatility import VolatilityRiskService
 
 
 class RiskOfficerService:
+    CALCULATOR_VERSIONS: ClassVar[dict[str, str]] = {
+        "concentration": "1",
+        "correlation": "1",
+        "drawdown": "2",
+        "exposure": "1",
+        "liquidity": "1",
+        "turnover": "1",
+        "var_cvar": "1",
+        "volatility": "1",
+    }
+
     def __init__(self, config: RiskOfficerConfig | None = None) -> None:
         self.config = config or RiskOfficerConfig()
         self.provenance = RiskProvenanceService()
@@ -82,12 +94,20 @@ class RiskOfficerService:
             (RiskCategory.ASSET_CLASS, "max_asset_class_weight", concentration["max_asset_class_weight"], "weight"),
             (RiskCategory.VOLATILITY, "portfolio_volatility", volatility["portfolio_volatility"], "annualized"),
             (RiskCategory.CORRELATION, "max_pairwise_correlation", correlation["max_pairwise_correlation"], "correlation"),
+            (RiskCategory.CORRELATION, "weighted_average_correlation", correlation["weighted_average_correlation"], "correlation"),
             (RiskCategory.DRAWDOWN, "max_drawdown", drawdown["max_drawdown"], "loss"),
             (RiskCategory.VAR, "var_95", var95["var"], "loss"),
             (RiskCategory.CVAR, "cvar_95", var95["cvar"], "loss"),
             (RiskCategory.VAR, "var_99", var99["var"], "loss"),
             (RiskCategory.CVAR, "cvar_99", var99["cvar"], "loss"),
             (RiskCategory.LIQUIDITY, "illiquid_weight", liquidity_result["illiquid_weight"], "weight"),
+            (
+                RiskCategory.LIQUIDITY,
+                "liquidity_score",
+                liquidity_result["liquidity_score"] if liquidity_result["scores"] else None,
+                "score",
+            ),
+            (RiskCategory.DATA_QUALITY, "unknown_metadata_weight", concentration["unknown_classification_weight"], "weight"),
             (RiskCategory.GROSS_EXPOSURE, "gross_exposure", exposure["gross_exposure"], "weight"),
             (RiskCategory.NET_EXPOSURE, "net_exposure", exposure["net_exposure"], "weight"),
             (RiskCategory.SHORT_EXPOSURE, "short_exposure", exposure["short_exposure"], "weight"),
@@ -132,11 +152,7 @@ class RiskOfficerService:
             data_quality_score=quality["score"],
             warnings=warnings,
             limitations=limitations,
-            provenance={
-                "input_fingerprint": source,
-                "algorithm_version": self.config.algorithm_version,
-                "git_commit": self.provenance.git_commit(),
-            },
+            provenance=self._assessment_provenance(proposal, history, liquidity, rules, source),
             trace=trace,
         )
 
@@ -178,5 +194,42 @@ class RiskOfficerService:
             return []
         return [sum(item.proposed_weight * series[item.symbol][-length + index] for item in proposal.positions) for index in range(length)]
 
-
-RiskService = RiskOfficerService
+    def _assessment_provenance(
+        self,
+        proposal: PortfolioProposal,
+        history: list[HistoricalBarsResult],
+        liquidity: dict[str, dict[str, float]],
+        rules: RiskConstraintSet,
+        source: str,
+    ) -> dict[str, object]:
+        market_data_fingerprints = {
+            str(item.symbol): self.provenance.fingerprint(item) for item in sorted(history, key=lambda value: str(value.symbol))
+        }
+        sample_windows = {
+            str(item.symbol): {
+                "start": item.bars[0].timestamp.isoformat() if item.bars else None,
+                "end": item.bars[-1].timestamp.isoformat() if item.bars else None,
+                "sample_count": len(item.bars),
+            }
+            for item in sorted(history, key=lambda value: str(value.symbol))
+        }
+        scenarios = StressTestingService().scenarios()
+        return {
+            "input_fingerprint": source,
+            "algorithm_version": self.config.algorithm_version,
+            "proposal_id": proposal.proposal_id,
+            "proposal_algorithm_version": proposal.algorithm_version,
+            "proposal_fingerprint": self.provenance.fingerprint(proposal),
+            "risk_policy_fingerprint": self.provenance.fingerprint(rules),
+            "market_data_fingerprints": market_data_fingerprints,
+            "liquidity_input_fingerprints": {
+                symbol: self.provenance.fingerprint(observation) for symbol, observation in sorted(liquidity.items())
+            },
+            "historical_sample_windows": sample_windows,
+            "risk_service_version": self.config.algorithm_version,
+            "calculator_versions": self.CALCULATOR_VERSIONS,
+            "stress_scenario_version": StressTestingService.VERSION,
+            "stress_scenarios": tuple({"scenario_id": item.scenario_id, "version": item.version} for item in scenarios),
+            "feature_snapshot_ids": (),
+            "git_commit": self.provenance.git_commit(),
+        }
