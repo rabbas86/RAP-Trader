@@ -543,6 +543,24 @@ class SnapshotRequest(BaseModel):
     def normalize_timestamp(cls, value: datetime) -> datetime:
         return _require_aware_utc(value)
 
+    @field_validator("domains", "symbols", "series_ids", "source_preferences", mode="before")
+    @classmethod
+    def coerce_list_to_tuple(cls, value: Any) -> Any:
+        """Accept JSON arrays (lists) and coerce to tuples for API compatibility."""
+        if isinstance(value, list):
+            return tuple(value)
+        return value
+
+    @field_validator("domains", mode="before")
+    @classmethod
+    def coerce_domains_to_enum(cls, value: Any) -> Any:
+        """Accept strings in lists/tuples and coerce to DataDomain enum values."""
+        if isinstance(value, (list, tuple)):
+            return tuple(DataDomain(item) if isinstance(item, str) else item for item in value)
+        if isinstance(value, str):
+            return DataDomain(value)
+        return value
+
     @model_validator(mode="after")
     def safety(self) -> SnapshotRequest:
         if not self.research_only or self.suitable_for_live_trading:
