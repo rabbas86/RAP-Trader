@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-from typing import Any, ClassVar
+from typing import Any
 from uuid import NAMESPACE_URL, uuid5
 
 from app.domain.models.analyst import (
@@ -20,20 +20,23 @@ from app.domain.models.analyst import (
     AnalysisWarning,
     AnalystError,
     AnalystErrorCodes,
-    AnalystHealth,
     AnalystMetadata,
     AnalystOpinion,
     AnalystRequest,
     AnalystRole,
     Assumption,
-    ConfidenceScore,
-    DataFreshness,
     EvidenceItem,
     EvidenceStrength,
     EvidenceType,
     OpinionSummary,
     ProvenanceRecord,
 )
+from app.services.analyst import framework as _framework
+from app.services.analyst.framework import BaseAnalyst
+
+ConfidenceAssessmentService = _framework.ConfidenceAssessmentService
+DataFreshnessService = _framework.DataFreshnessService
+EvidenceValidationService = _framework.EvidenceValidationService
 
 SCHEMA_VERSION = "1.0"
 
@@ -55,86 +58,9 @@ class AnalystConfig:
     include_technical_bars: bool = True
 
 
-class DataFreshnessService:
-    THRESHOLDS: ClassVar[dict[EvidenceType, timedelta]] = {
-        EvidenceType.MARKET_DATA: timedelta(days=1),
-        EvidenceType.TECHNICAL_INDICATOR: timedelta(days=1),
-        EvidenceType.NEWS: timedelta(days=1),
-        EvidenceType.SENTIMENT: timedelta(days=1),
-        EvidenceType.FORECAST: timedelta(days=1),
-        EvidenceType.MACROECONOMIC: timedelta(days=7),
-        EvidenceType.CENTRAL_BANK: timedelta(days=7),
-        EvidenceType.FINANCIAL_STATEMENT: timedelta(days=120),
-        EvidenceType.REGULATORY_FILING: timedelta(days=120),
-        EvidenceType.VALUATION: timedelta(days=30),
-        EvidenceType.BACKTEST: timedelta(days=30),
-        EvidenceType.MODEL_OUTPUT: timedelta(days=1),
-        EvidenceType.RISK: timedelta(days=1),
-        EvidenceType.PORTFOLIO: timedelta(days=1),
-        EvidenceType.EXPERT_ASSUMPTION: timedelta(days=30),
-        EvidenceType.OTHER: timedelta(days=7),
-    }
-
-    def threshold(self, evidence_type: EvidenceType) -> timedelta:
-        return self.THRESHOLDS[evidence_type]
-
-    def assess(self, observed_at: datetime, available_at: datetime, evaluated_at: datetime, evidence_type: EvidenceType) -> DataFreshness:
-        age = max(0.0, (evaluated_at - observed_at).total_seconds())
-        threshold = self.threshold(evidence_type)
-        return DataFreshness(
-            observed_at=observed_at,
-            available_at=available_at,
-            evaluated_at=evaluated_at,
-            stale_threshold=threshold,
-            is_stale=age > threshold.total_seconds(),
-            age_seconds=age,
-        )
-
-
-class EvidenceValidationService:
-    def __init__(self, freshness: DataFreshnessService | None = None) -> None:
-        self.freshness = freshness or DataFreshnessService()
-
-    def validate(self, items: list[EvidenceItem], as_of: datetime, *, allow_stale: bool = False) -> None:
-        ids = [item.evidence_id for item in items]
-        if len(ids) != len(set(ids)):
-            raise AnalystError(AnalystErrorCodes.INVALID_REQUEST, "Evidence IDs must be unique")
-        for item in items:
-            if item.available_at > as_of:
-                raise AnalystError(AnalystErrorCodes.LOOKAHEAD_REJECTED, "Evidence was not available at the evaluation time")
-            assessment = self.freshness.assess(item.observed_at, item.available_at, as_of, item.evidence_type)
-            if (assessment.is_stale or item.valid_until < as_of) and not allow_stale:
-                raise AnalystError(AnalystErrorCodes.FRESHNESS_REJECTED, "Expired or stale evidence was rejected")
-
-
-class ConfidenceAssessmentService:
-    def __init__(self, uncalibrated_cap: float = 0.65) -> None:
-        self.uncalibrated_cap = uncalibrated_cap
-
-    def assess(
-        self, value: float, *, calibrated: bool = False, stale_fraction: float = 0.0, conflict_fraction: float = 0.0
-    ) -> ConfidenceScore:
-        adjusted = max(0.0, min(1.0, value * (1 - 0.5 * stale_fraction) * (1 - 0.5 * conflict_fraction)))
-        capped = not calibrated and adjusted > self.uncalibrated_cap
-        if capped:
-            adjusted = self.uncalibrated_cap
-        return ConfidenceScore(
-            value=round(adjusted, 6),
-            capped=capped,
-            calibration_note="historical calibration available" if calibrated else "uncalibrated; confidence cap enforced",
-            has_historical_calibration=calibrated,
-        )
-
-
-class Analyst(ABC):
+class Analyst(BaseAnalyst, ABC):
     @abstractmethod
     def analyze(self, request: AnalystRequest) -> AnalystOpinion: ...
-    @abstractmethod
-    def health(self) -> AnalystHealth: ...
-    @abstractmethod
-    def metadata(self) -> AnalystMetadata: ...
-    @abstractmethod
-    def validate_input(self, request: AnalystRequest) -> None: ...
     @abstractmethod
     def supported_timeframes(self) -> list[str]: ...
     @abstractmethod
@@ -142,43 +68,19 @@ class Analyst(ABC):
 
 
 class MockAnalyst(Analyst):
+    display_name = "Mock Analyst"
+    description = "Deterministic research-only framework analyst"
+    health_detail = "deterministic offline mock"
+
     def __init__(self, config: AnalystConfig | None = None) -> None:
         self.config = config or AnalystConfig()
-        self.freshness = DataFreshnessService()
-        self.confidence = ConfidenceAssessmentService(self.config.uncalibrated_confidence_cap)
-        self.validator = EvidenceValidationService(self.freshness)
+        self._initialize_framework(self.config.uncalibrated_confidence_cap)
 
     def supported_timeframes(self) -> list[str]:
         return ["1m", "5m", "15m", "1h", "1d", "1w"]
 
     def supported_asset_classes(self) -> list[str]:
         return ["equity"]
-
-    def validate_input(self, request: AnalystRequest) -> None:
-        if request.analyst_id != self.config.analyst_id:
-            raise AnalystError(AnalystErrorCodes.UNSUPPORTED_ANALYST, "Analyst is not available")
-        if request.timeframe not in self.supported_timeframes() or request.asset_class not in self.supported_asset_classes():
-            raise AnalystError(AnalystErrorCodes.INVALID_REQUEST, "Unsupported timeframe or asset class")
-
-    def health(self) -> AnalystHealth:
-        return AnalystHealth(
-            analyst_id=self.config.analyst_id,
-            configured=True,
-            reachable=True,
-            checked_at=datetime.now(UTC),
-            status="healthy",
-            detail="deterministic offline mock",
-        )
-
-    def metadata(self) -> AnalystMetadata:
-        return AnalystMetadata(
-            analyst_id=self.config.analyst_id,
-            display_name="Mock Analyst",
-            role=self.config.role,
-            supported_timeframes=self.supported_timeframes(),
-            supported_asset_classes=self.supported_asset_classes(),
-            description="Deterministic research-only framework analyst",
-        )
 
     def _evidence(self, request: AnalystRequest) -> list[EvidenceItem]:
         if self.config.mock_direction is AnalysisDirection.INSUFFICIENT_EVIDENCE:
@@ -238,7 +140,7 @@ class MockAnalyst(Analyst):
             else self.freshness.assess(request.as_of, request.as_of, request.as_of, EvidenceType.OTHER)
         )
         material = f"{request.model_dump_json()}|{self.config.mock_direction.value}"
-        return AnalystOpinion(
+        opinion = AnalystOpinion(
             opinion_id=str(uuid5(NAMESPACE_URL, material)),
             analyst_id=request.analyst_id,
             analyst_role=self.config.role,
@@ -253,6 +155,7 @@ class MockAnalyst(Analyst):
             model_identity=None,
             data_freshness=freshness,
         )
+        return self._record_trace(opinion, request, "mock")
 
 
 class OpinionAggregationService:

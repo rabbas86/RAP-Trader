@@ -1,3 +1,4 @@
+from app.services.analyst.framework import BaseAnalyst
 from app.services.analyst.service import (
     Analyst,
     AnalystConfig,
@@ -18,6 +19,7 @@ __all__ = [
     "Analyst",
     "AnalystConfig",
     "AnalystService",
+    "BaseAnalyst",
     "ConfidenceAssessmentService",
     "DataFreshnessService",
     "EvidenceCollector",
