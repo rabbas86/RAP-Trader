@@ -4,7 +4,7 @@ from collections import OrderedDict
 from hashlib import sha256
 from threading import RLock
 from time import monotonic
-from typing import TypeVar
+from typing import Generic, TypeVar
 
 from app.domain.models.market_data import AdjustmentPolicy, HistoricalBarsRequest, SessionPolicy
 
@@ -30,7 +30,7 @@ def cache_key_builder(
     return sha256(serialized.encode("utf-8")).hexdigest()
 
 
-class AbstractCache[T](ABC):
+class AbstractCache(ABC, Generic[T]):  # noqa: UP046
     @abstractmethod
     def get(self, key: str) -> T | None:
         """Return a cached value, or None when absent or expired."""
@@ -44,7 +44,7 @@ class AbstractCache[T](ABC):
         """Remove every cached value."""
 
 
-class InMemoryCache[T](AbstractCache[T]):
+class InMemoryCache(AbstractCache[T]):
     def __init__(self, ttl_seconds: float = 300.0, max_size: int = 128) -> None:
         if ttl_seconds <= 0:
             raise ValueError("ttl_seconds must be positive")

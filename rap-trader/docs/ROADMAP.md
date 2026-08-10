@@ -38,3 +38,6 @@ Implemented as a deterministic, offline, read-only data layer that normalizes, v
 # Phase 8B — Macro Economist
 
 Implemented as a deterministic, offline, research-only specialist analyst. Consumes `ResearchDataSnapshot` from the Phase 8A platform and produces Phase 5 `AnalystOpinion` objects through the Phase 7.5 analyst lifecycle. Classifies macro-economic regime via 8 specialist services (inflation, growth, employment, liquidity, monetary policy, yield curve, credit, business cycle) with priority-ordered regime classification. API: `GET /analysts/macro/health`, `GET /analysts/macro/metadata`, `POST /analysts/macro/analyze`. CLI: `python -m app.cli.analyst --analyst macro --input-snapshot <path>`. See [MACRO_ECONOMIST.md](MACRO_ECONOMIST.md) and [PHASE_08B_MACRO_ECONOMIST.md](phases/PHASE_08B_MACRO_ECONOMIST.md).
+# Phase 9 — News Analyst (implemented)
+
+Deterministic, offline, research-only news analyst consuming Phase 8A data platform records. See [NEWS_ANALYST.md](NEWS_ANALYST.md) and [PHASE_09_NEWS_ANALYST.md](phases/PHASE_09_NEWS_ANALYST.md).

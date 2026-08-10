@@ -272,9 +272,10 @@ class AnalystService:
         if analysts is None:
             from app.services.fundamental_analysis.service import FundamentalAnalyst
             from app.services.macro_analysis.service import MacroAnalyst
+            from app.services.news_analysis.service import NewsAnalyst
             from app.services.technical_analysis.service import TechnicalAnalyst
 
-            values = [MockAnalyst(), TechnicalAnalyst(), FundamentalAnalyst(), MacroAnalyst()]
+            values = [MockAnalyst(), TechnicalAnalyst(), FundamentalAnalyst(), MacroAnalyst(), NewsAnalyst()]
         else:
             values = analysts
         self.analysts = {item.metadata().analyst_id: item for item in values}

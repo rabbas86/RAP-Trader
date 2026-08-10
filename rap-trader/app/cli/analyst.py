@@ -26,7 +26,10 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--asset-class", default="equity")
     result.add_argument("--input-json", help="Optional JSON object merged into the analyst request")
     result.add_argument("--input-fundamentals", help="Path to a CompanyFundamentals JSON document")
-    result.add_argument("--input-snapshot", help="Path to a ResearchDataSnapshot JSON document (for the macro analyst)")
+    result.add_argument("--input-snapshot", help="Path to a ResearchDataSnapshot JSON document (for the macro and news analysts)")
+    result.add_argument("--input-events", help="Path to a JSON array of EventRecord documents (for the news analyst)")
+    result.add_argument("--max-events", type=int, default=0, help="Optional maximum number of events to process (news analyst)")
+    result.add_argument("--entity-filter", default=None, help="Optional entity filter for news events")
     return result
 
 
@@ -46,6 +49,20 @@ def main(argv: Sequence[str] | None = None) -> int:
             result = parser()
             result.error("--input-snapshot is required for the macro analyst")
         extra_context["snapshot"] = json.loads(Path(args.input_snapshot).read_text(encoding="utf-8"))
+        if args.asset_class == "equity":
+            args.asset_class = "macro"
+    if analyst_id == "news":
+        if not args.input_snapshot and not args.input_events:
+            result = parser()
+            result.error("--input-snapshot or --input-events is required for the news analyst")
+        if args.input_snapshot:
+            extra_context["snapshot"] = json.loads(Path(args.input_snapshot).read_text(encoding="utf-8"))
+        if args.input_events:
+            extra_context["events"] = json.loads(Path(args.input_events).read_text(encoding="utf-8"))
+        if args.max_events and args.max_events > 0:
+            extra_context["max_events"] = args.max_events
+        if args.entity_filter:
+            extra_context["entity_filter"] = args.entity_filter
         if args.asset_class == "equity":
             args.asset_class = "macro"
     request = AnalystRequest(
@@ -84,6 +101,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             regimes = [item.summary for item in opinion.evidence if "regime" in item.summary.lower()]
             if regimes:
                 print(f"Regime: {regimes[0]}")
+        if opinion.analyst_id == "news":
+            orientations = [item.summary for item in opinion.evidence if "orientation" in item.summary]
+            if orientations:
+                print(f"News orientation: {orientations[0].split('|')[-1].strip()}")
+            print("Event clusters: " + ", ".join(f"{item.summary.split(':')[0]}={item.strength.value}" for item in opinion.evidence))
         print(f"Assumptions: {[x.description for x in opinion.assumptions]}")
         print(f"Warnings: {[x.message for x in opinion.warnings]}")
         print(f"Limitations: {[x.message for x in opinion.limitations]}")

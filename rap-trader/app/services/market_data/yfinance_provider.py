@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from typing import Any, cast
 
 import pandas as pd  # type: ignore[import-untyped]
-import yfinance as yf  # type: ignore[import-untyped]
+import yfinance as yf  # type: ignore
 from pydantic import ValidationError
 
 from app.domain.models.market_data import (
