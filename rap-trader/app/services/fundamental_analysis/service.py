@@ -3,28 +3,20 @@
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
+from datetime import datetime
 from uuid import NAMESPACE_URL, uuid5
 
 from app.domain.models.analyst import (
     AnalysisDirection,
     AnalystError,
     AnalystErrorCodes,
-    AnalystHealth,
-    AnalystMetadata,
     AnalystOpinion,
     AnalystRequest,
-    AnalystRole,
     ConfidenceScore,
     EvidenceType,
 )
 from app.domain.models.fundamental import CompanyFundamentals, FundamentalMetric
-from app.services.analyst.service import (
-    Analyst,
-    ConfidenceAssessmentService,
-    DataFreshnessService,
-    EvidenceValidationService,
-)
+from app.services.analyst.service import Analyst
 from app.services.fundamental_analysis.balance_sheet import BalanceSheetAnalysisService
 from app.services.fundamental_analysis.capital_efficiency import CapitalEfficiencyAnalysisService
 from app.services.fundamental_analysis.cash_flow import CashFlowAnalysisService
@@ -43,8 +35,13 @@ from app.services.fundamental_analysis.valuation import ValuationAnalysisService
 class FundamentalAnalyst(Analyst):
     """Deterministic, offline, research-only fundamental analyst."""
 
+    display_name = "Fundamental Analyst"
+    description = "Deterministic, offline fundamental analyst for equities"
+    health_detail = "deterministic offline fundamental formulas"
+
     def __init__(self, config: FundamentalAnalystConfig | None = None) -> None:
         self.config = config or FundamentalAnalystConfig()
+        self._initialize_framework()
         self.normalizer = FinancialDataNormalizationService()
         self.statement_validator = FundamentalAnalysisValidationService()
         self.growth_service = GrowthAnalysisService()
@@ -57,53 +54,12 @@ class FundamentalAnalyst(Analyst):
         self.valuation_service = ValuationAnalysisService()
         self.factory = FundamentalEvidenceFactory()
         self.synthesizer = FundamentalOpinionSynthesisService()
-        self.freshness = DataFreshnessService()
-        self.confidence = ConfidenceAssessmentService()
-        self.validator = EvidenceValidationService(self.freshness)
-
-    @property
-    def analyst_id(self) -> str:
-        return self.config.analyst_id
-
-    @property
-    def analyst_role(self) -> AnalystRole:
-        return self.config.role
 
     def supported_timeframes(self) -> list[str]:
         return ["1d", "1w", "1mo"]
 
     def supported_asset_classes(self) -> list[str]:
         return ["equity"]
-
-    def validate_input(self, request: AnalystRequest) -> None:
-        if request.analyst_id != self.config.analyst_id:
-            raise AnalystError(AnalystErrorCodes.UNSUPPORTED_ANALYST, "Analyst is not available")
-        if request.timeframe not in self.supported_timeframes():
-            raise AnalystError(AnalystErrorCodes.INVALID_REQUEST, "Unsupported timeframe")
-        if request.asset_class not in self.supported_asset_classes():
-            raise AnalystError(AnalystErrorCodes.INVALID_REQUEST, "Fundamental analyst supports equity only")
-
-    def health(self) -> AnalystHealth:
-        return AnalystHealth(
-            analyst_id=self.config.analyst_id,
-            configured=True,
-            reachable=True,
-            status="healthy",
-            detail="deterministic offline fundamental formulas",
-            checked_at=datetime.now(UTC),
-        )
-
-    def metadata(self) -> AnalystMetadata:
-        return AnalystMetadata(
-            analyst_id=self.config.analyst_id,
-            display_name="Fundamental Analyst",
-            role=self.config.role,
-            supported_timeframes=self.supported_timeframes(),
-            supported_asset_classes=self.supported_asset_classes(),
-            suitable_for_live_trading=False,
-            research_only=True,
-            description="Deterministic, offline fundamental analyst for equities",
-        )
 
     def analyze(self, request: AnalystRequest) -> AnalystOpinion:
         self.validate_input(request)
@@ -153,7 +109,7 @@ class FundamentalAnalyst(Analyst):
             conflict_fraction=synthesis.conflict_fraction,
         )
 
-        return AnalystOpinion(
+        opinion = AnalystOpinion(
             opinion_id=opinion_id,
             analyst_id=request.analyst_id,
             analyst_role=self.config.role,
@@ -170,6 +126,7 @@ class FundamentalAnalyst(Analyst):
             suitable_for_live_trading=False,
             research_only=True,
         )
+        return self._record_trace(opinion, request, source)
 
     @staticmethod
     def _data_quality_metrics(normalized: NormalizedFinancialStatements, as_of: datetime) -> list[FundamentalMetric]:
@@ -226,7 +183,7 @@ class FundamentalAnalyst(Analyst):
         confidence = ConfidenceScore(
             value=0.0, capped=False, calibration_note="uncalibrated; confidence cap enforced", has_historical_calibration=False
         )
-        return AnalystOpinion(
+        opinion = AnalystOpinion(
             opinion_id=opinion_id,
             analyst_id=request.analyst_id,
             analyst_role=self.config.role,
@@ -243,3 +200,4 @@ class FundamentalAnalyst(Analyst):
             suitable_for_live_trading=False,
             research_only=True,
         )
+        return self._record_trace(opinion, request, "fundamentals")
