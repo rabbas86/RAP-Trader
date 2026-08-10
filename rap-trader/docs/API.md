@@ -76,3 +76,11 @@ overlap context bars, must match expected target timestamps exactly, and no bar 
 - `GET /analysts/opinions/{opinion_id}` retrieves a stored opinion.
 
 All analyst responses are research-only and cannot create trades. Public errors expose only stable codes and safe messages.
+
+## Analyst endpoints (Phase 7 — Fundamental)
+
+`GET /analysts/fundamental/health` returns `{"status":"healthy","detail":"deterministic offline fundamental formulas"}`.
+
+`GET /analysts/fundamental/metadata` returns analyst capabilities including `analyst_id="fundamental"`, `role="FUNDAMENTAL"`, `research_only=true`, and `suitable_for_live_trading=false`.
+
+`POST /analysts/fundamental/analyze` accepts an `AnalystRequest` whose `extra_context` contains a `fundamentals` key with a `CompanyFundamentals` JSON document. The analyst normalizes, validates, analyzes, and returns an `AnalystOpinion` with evidence grouped by category (growth, profitability, cash_flow, balance_sheet, capital_efficiency, valuation, earnings_quality, shareholder, data_quality). No market data is fetched; all inputs are caller-supplied.

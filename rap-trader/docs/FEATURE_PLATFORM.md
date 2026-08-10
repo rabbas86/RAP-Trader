@@ -180,3 +180,12 @@ python -m app.cli.features --ticker AAPL --as-of 2026-08-01T00:00:00+00:00 --jso
 * No API keys, tokens, passwords, or secrets stored or logged.
 * `research_only=True` and `suitable_for_live_trading=False` on every opinion.
 * Future timestamps are rejected at the model and snapshot level.
+
+## Phase 7 — Fundamental Analyst (non-MIFP)
+
+The fundamental analyst is a standalone analyst that does **not** consume MIFP
+`FeatureSnapshot`. It reads caller-supplied financial statements from the
+`CompanyFundamentals` input contract and produces Phase 5 evidence/opinion
+output. Market-derived inputs (price, market cap, enterprise value) may be
+supplied directly in the fundamentals JSON; they are never fetched from MIFP or
+any external source. See `docs/FUNDAMENTAL_ANALYST.md`.

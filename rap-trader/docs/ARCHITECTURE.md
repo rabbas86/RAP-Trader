@@ -48,3 +48,14 @@ See `docs/FEATURE_PLATFORM.md` and `docs/phases/PHASE_06_5_FEATURE_PLATFORM.md`.
 ## Technical Analyst integration
 
 The Phase 6 Technical Analyst (`app/services/technical_analysis/service.py`) consumes `FeatureSnapshot` from `FeatureService` as its sole feature source. The normal analysis path (`analyze()`) never independently recalculates SMA, EMA, RSI, MACD, ATR, Bollinger, OBV, VWAP, market structure, or support/resistance — all values are read from the immutable snapshot. See `docs/TECHNICAL_ANALYST.md`.
+
+# Phase 7 — Fundamental Analyst
+
+The Phase 7 Fundamental Analyst (`app/services/fundamental_analysis/service.py`) is an offline, deterministic, research-only analyst that consumes caller-supplied point-in-time `CompanyFundamentals` and produces the shared Phase 5 `AnalystOpinion`. It depends on:
+
+- `app/domain/models/fundamental.py` — strict financial statement models
+- `app/services/fundamental_analysis/` — normalization, analysis, evidence, synthesis
+- `app/domain/models/analyst.py` — shared `Analyst` ABC, `EvidenceItem`, `AnalystOpinion`
+- `app/services/analyst/service.py` — analyst registry (auto-registers `"fundamental"`)
+
+The fundamental analyst does **not** consume MIFP `FeatureSnapshot` — accounting analysis is independent of engineered market features. Market-derived inputs (price, market cap, EV) are optional and caller-supplied in the `CompanyFundamentals` payload. See `docs/FUNDAMENTAL_ANALYST.md`.

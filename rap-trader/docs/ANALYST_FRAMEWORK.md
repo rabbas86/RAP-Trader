@@ -21,3 +21,7 @@ AnalystRequest → FeatureService → FeatureSnapshot → EvidenceItem → Analy
 ```
 
 All indicator formulas are computed once in MIFP feature generators; the Technical Analyst reads the resulting values from the snapshot and converts them into `EvidenceItem` objects. No indicator is independently recalculated. See `docs/FEATURE_PLATFORM.md` and `docs/TECHNICAL_ANALYST.md`.
+
+## Phase 7 — Fundamental Analyst
+
+The fundamental analyst consumes caller-supplied point-in-time financial statements and produces Phase 5 `AnalystOpinion` objects via the same evidence/synthesis contracts. It evaluates growth, profitability, cash flow, balance-sheet strength, capital efficiency, valuation, earnings quality, and shareholder capital allocation. ROIC, earnings-quality ratings, and all other metrics use documented deterministic formulas with no network access, no LLM, and no model download. See `docs/FUNDAMENTAL_ANALYST.md`.
