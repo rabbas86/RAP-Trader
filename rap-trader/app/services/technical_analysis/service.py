@@ -10,7 +10,7 @@ feature generators, and the analyst reads their deterministic outputs.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from threading import RLock
 from typing import Any, ClassVar, Literal
 from uuid import NAMESPACE_URL, uuid5
@@ -18,12 +18,10 @@ from uuid import NAMESPACE_URL, uuid5
 from app.domain.models.analyst import (
     AnalysisDirection,
     AnalysisLimitation,
-    AnalysisTrace,
     AnalysisWarning,
     AnalystError,
     AnalystErrorCodes,
     AnalystHealth,
-    AnalystMetadata,
     AnalystOpinion,
     AnalystRequest,
     AnalystRole,
@@ -32,9 +30,6 @@ from app.domain.models.analyst import (
     EvidenceStrength,
     EvidenceType,
     ProvenanceRecord,
-    TraceEdge,
-    TraceNode,
-    validate_trace,
 )
 from app.domain.models.features import FeatureError, FeatureSnapshot, FeatureSnapshotRequest
 from app.domain.models.market_data import HistoricalBarsRequest, MarketDataError, OHLCVBar, Symbol, Timeframe, _require_aware_utc
@@ -45,7 +40,8 @@ from app.domain.models.technical import (
     TechnicalIndicatorValue,
     TechnicalLevel,
 )
-from app.services.analyst.service import Analyst, ConfidenceAssessmentService, DataFreshnessService, EvidenceValidationService
+from app.services.analyst.framework.health import build_health
+from app.services.analyst.service import Analyst
 from app.services.features import FeatureService
 from app.services.features.generators.momentum import MomentumFeatureGenerator
 from app.services.features.generators.trend import TrendFeatureGenerator
@@ -97,6 +93,8 @@ class TechnicalAnalystConfig:
 
 
 class TechnicalAnalyst(Analyst):
+    display_name = "Technical Analyst"
+    description = "Deterministic indicators, volume, structure, support, resistance, and evidence synthesis"
     _STEPS: ClassVar[dict[str, timedelta]] = {
         "1m": timedelta(minutes=1),
         "5m": timedelta(minutes=5),
@@ -116,11 +114,10 @@ class TechnicalAnalyst(Analyst):
     ) -> None:
         self.provider = provider or MockMarketDataProvider()
         self.config = config or TechnicalAnalystConfig()
+        self._initialize_framework(self.config.uncalibrated_confidence_cap)
         self.feature_service = feature_service or FeatureService(provider=self.provider)
-        self.freshness, self.confidence = DataFreshnessService(), ConfidenceAssessmentService(self.config.uncalibrated_confidence_cap)
-        self.validator, self.synthesizer = EvidenceValidationService(self.freshness), TechnicalEvidenceSynthesizer()
+        self.synthesizer = TechnicalEvidenceSynthesizer()
         self._opinions: dict[str, AnalystOpinion] = {}
-        self._traces: dict[str, AnalysisTrace] = {}
         self._snapshots: dict[str, TechnicalAnalysisSnapshot] = {}
         self._lock = RLock()
 
@@ -130,31 +127,14 @@ class TechnicalAnalyst(Analyst):
     def supported_asset_classes(self) -> list[str]:
         return ["equity"]
 
-    def validate_input(self, request: AnalystRequest) -> None:
-        if request.analyst_id != self.config.analyst_id:
-            raise AnalystError(AnalystErrorCodes.UNSUPPORTED_ANALYST, "Analyst is not available")
-        if request.timeframe not in self._STEPS or request.asset_class != "equity":
-            raise AnalystError(AnalystErrorCodes.INVALID_REQUEST, "Unsupported timeframe or asset class")
-
     def health(self) -> AnalystHealth:
         health = self.provider.health()
-        return AnalystHealth(
-            analyst_id=self.config.analyst_id,
+        return build_health(
+            self.analyst_id,
+            f"technical analyst using {health.provider}",
             configured=health.configured,
             reachable=health.reachable,
-            checked_at=datetime.now(UTC),
             status=health.status,
-            detail=f"technical analyst using {health.provider}",
-        )
-
-    def metadata(self) -> AnalystMetadata:
-        return AnalystMetadata(
-            analyst_id=self.config.analyst_id,
-            display_name="Technical Analyst",
-            role=self.config.role,
-            supported_timeframes=self.supported_timeframes(),
-            supported_asset_classes=["equity"],
-            description="Deterministic indicators, volume, structure, support, resistance, and evidence synthesis",
         )
 
     # ------------------------------------------------------------------
@@ -790,49 +770,8 @@ class TechnicalAnalyst(Analyst):
             provenance=provenance_records,
         )
 
-    def _trace(self, opinion_id: str, evidence: list[EvidenceItem], request: AnalystRequest, provider: str) -> AnalysisTrace:
-        request_node, market_node, opinion_node = f"request:{opinion_id}", f"market-data:{opinion_id}", f"opinion:{opinion_id}"
-        nodes = [
-            TraceNode(node_id=request_node, node_type="analyst_request", created_at=request.as_of, metadata={}),
-            TraceNode(node_id=market_node, node_type="market_data", created_at=request.as_of, metadata={"provider": provider}),
-        ]
-        edges = [TraceEdge(source_node_id=request_node, target_node_id=market_node, edge_type="requests")]
-        for item in evidence:
-            kind = (
-                "forecast"
-                if item.evidence_type is EvidenceType.FORECAST
-                else "backtest"
-                if item.evidence_type is EvidenceType.BACKTEST
-                else "evidence"
-            )
-            source_node = market_node
-            if kind != "evidence":
-                source_node = f"{kind}:{opinion_id}"
-                nodes.append(TraceNode(node_id=source_node, node_type=kind, created_at=request.as_of, metadata={}))
-                edges.append(TraceEdge(source_node_id=request_node, target_node_id=source_node, edge_type="requests"))
-            nodes.append(
-                TraceNode(
-                    node_id=item.evidence_id,
-                    node_type="evidence",
-                    created_at=request.as_of,
-                    metadata={"category": item.summary.split(":", 1)[0]},
-                )
-            )
-            edges.append(TraceEdge(source_node_id=source_node, target_node_id=item.evidence_id, edge_type="produces"))
-        nodes.append(TraceNode(node_id=opinion_node, node_type="analyst_opinion", created_at=request.as_of, metadata={}))
-        edges.extend(TraceEdge(source_node_id=item.evidence_id, target_node_id=opinion_node, edge_type="supports") for item in evidence)
-        return validate_trace(
-            AnalysisTrace(
-                trace_id=str(uuid5(NAMESPACE_URL, f"technical-trace|{opinion_id}")), nodes=nodes, edges=edges, created_at=request.as_of
-            )
-        )
-
-    def trace_for(self, opinion_id: str) -> AnalysisTrace | None:
-        with self._lock:
-            return self._traces.get(opinion_id)
-
     def _insufficient(self, request: AnalystRequest, material: str) -> AnalystOpinion:
-        return AnalystOpinion(
+        opinion = AnalystOpinion(
             opinion_id=str(uuid5(NAMESPACE_URL, material + "|insufficient")),
             analyst_id=self.config.analyst_id,
             analyst_role=self.config.role,
@@ -845,6 +784,7 @@ class TechnicalAnalyst(Analyst):
             generated_at=request.as_of,
             data_freshness=self.freshness.assess(request.as_of, request.as_of, request.as_of, EvidenceType.OTHER),
         )
+        return self._record_trace(opinion, request, "market-data")
 
     def analyze(self, request: AnalystRequest) -> AnalystOpinion:
         self.validate_input(request)
@@ -912,7 +852,7 @@ class TechnicalAnalyst(Analyst):
                 EvidenceType.TECHNICAL_INDICATOR,
             ),
         )
-        trace = self._trace(opinion_id, evidence, request, provider)
+        trace = self._build_trace(opinion_id, evidence, request, provider)
         with self._lock:
             self._opinions[key], self._traces[opinion_id], self._snapshots[key] = opinion, trace, snapshot
         return opinion
