@@ -22,6 +22,7 @@ class CommitteeDeliberationService:
         high_conflicts: int,
         portfolio: PortfolioReview,
         risk: RiskGovernance,
+        data_quality_score: float,
         questions: tuple[CommitteeQuestion, ...],
         config: CommitteeConfig,
     ) -> CommitteeRecommendation:
@@ -47,6 +48,9 @@ class CommitteeDeliberationService:
         elif alignment.freshness < config.minimum_freshness_score:
             recommendation = CommitteeRecommendationType.DEFER
             rationale.append("Research freshness is below policy")
+        elif data_quality_score < config.minimum_data_quality:
+            recommendation = CommitteeRecommendationType.DEFER
+            rationale.append("Risk data quality is below committee policy")
         elif not portfolio.acceptable:
             recommendation = CommitteeRecommendationType.REVISE_RESEARCH_PROPOSAL
             rationale.append("Portfolio proposal requires committee modifications")

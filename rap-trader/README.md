@@ -1,5 +1,7 @@
 # RAP Trader
 
+Phase 12 adds the deterministic offline [Investment Committee](docs/INVESTMENT_COMMITTEE.md): a cross-functional research-governance layer over specialist opinions, the Phase 10 portfolio proposal, and the Phase 11 risk decision. Risk rejection is non-overridable, approval is not execution approval, and all outputs remain research-only, unsuitable for live trading, and not decision-ready.
+
 Phase 7.5 consolidates Mock, Technical, and Fundamental analysts on one deterministic, research-only lifecycle and trace framework. Phase 7 adds the `fundamental` analyst for caller-supplied point-in-time financial statements. Phase 6 provides the `technical` analyst, consuming features from the Phase 6.5 Market Intelligence Feature Platform (MIFP). See [Analyst Platform](docs/ANALYST_PLATFORM.md), [Fundamental Analyst](docs/FUNDAMENTAL_ANALYST.md), [Technical Analyst](docs/TECHNICAL_ANALYST.md), and [Feature Platform](docs/FEATURE_PLATFORM.md).
 
 Phase 3 adds deterministic offline Kronos forecasting over the Phase 2 market-data boundary. Live trading remains disabled, no real-broker adapter or order API exists, and forecasts are not investment advice.

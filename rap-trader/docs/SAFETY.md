@@ -73,3 +73,6 @@ Phase 10 emits research weights only. Safety flags cannot be enabled, future inp
 Phase 11 can only evaluate immutable research proposals. Its outputs are permanently non-live and non-decision-ready. It performs no network access, data retrieval, executable-size estimation, transaction-cost estimation, instruction construction, or trade placement. Missing evidence lowers data quality or yields `insufficient_data`; it is never invented.
 
 The Phase 1 `RiskEngine` remains execution/trade-level safety. The Phase 11 Risk Officer is a separate portfolio-proposal research reviewer and cannot authorize or construct trades. Investment Committee and Chairman remain future phases.
+## Investment Committee safety boundary
+
+Committee recommendations are research governance records, not trading decisions. `research_only=true`, `suitable_for_live_trading=false`, and `decision_ready=false` are immutable. Risk `REJECT` cannot be overridden; `INSUFFICIENT_DATA` and `REQUIRE_MODIFICATION` prevent approval. Phase 12 has no network, LLM, model download, broker, execution, order, live-trading, or Chairman dependency.

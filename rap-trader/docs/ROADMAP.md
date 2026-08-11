@@ -1,5 +1,7 @@
 # Roadmap
 
+- Phase 12 — Investment Committee (implemented: deterministic offline cross-functional research governance with non-overridable risk precedence, dissent protection, provenance, API, and CLI).
+
 - Phase 6: complete technical analyst architecture (implemented).
 - Phase 6.5: Market Intelligence Feature Platform — hardened as canonical engineered-feature source (implemented).
 

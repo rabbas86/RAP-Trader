@@ -32,3 +32,6 @@ All portfolio contracts are strict and immutable. Their safety flags are fixed t
 # Phase 11 downstream review
 
 A `PortfolioProposal` may be passed unchanged to the offline Risk Officer. Risk review never rewrites proposal positions or constraints and cannot send the proposal for execution.
+## Phase 12 downstream review
+
+The Investment Committee reviews an existing `PortfolioProposal` for alignment, conviction, cash, uncertainty, and concentration. It never reconstructs the proposal or reruns Portfolio Manager optimization. Any approval remains research-only and is not execution authorization.

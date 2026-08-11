@@ -121,3 +121,6 @@ The portfolio manager consumes immutable analyst opinions and current research p
 The Phase 11 Risk Officer is implemented as deterministic, offline portfolio-proposal research review. It is separate from the Phase 1 `RiskEngine`, which provides execution/trade-level safety. Investment Committee and Chairman remain future phases.
 
 `app/services/risk/` is an offline portfolio-review component downstream of the Portfolio Manager. It is separate from the Phase 1 `risk_engine`, consumes proposals read-only, and has no dependency on execution or governance components. Pure calculators feed limit evaluation, stress testing, an assessment, and a non-actionable research decision.
+## Phase 12 Investment Committee
+
+The offline committee sits after specialist research, portfolio construction, and Risk Officer review. Focused services assemble the research case, measure alignment, classify conflicts, preserve dissent, review portfolio implications, enforce risk precedence, create questions, and synthesize deterministic outputs. SHA-256 provenance and a UUID5 acyclic trace preserve every source. The layer has no dependency on broker, execution, order, risk-engine, Chairman, network, or model services.

@@ -40,6 +40,15 @@ class InvestmentCommitteeService:
             "output": "CommitteeAssessment and CommitteeRecommendation",
         }
 
+    def _required_roles(self) -> tuple[CommitteeMemberRole, ...]:
+        allowed = {
+            CommitteeMemberRole.NEWS_ANALYST: self.config.allow_missing_news,
+            CommitteeMemberRole.MACRO_ECONOMIST: self.config.allow_missing_macro,
+            CommitteeMemberRole.FUNDAMENTAL_ANALYST: self.config.allow_missing_fundamental,
+            CommitteeMemberRole.TECHNICAL_ANALYST: self.config.allow_missing_technical,
+        }
+        return tuple(role for role in self.config.required_specialist_roles if not allowed.get(role, False))
+
     def assess(
         self,
         opinions: list[AnalystOpinion],
@@ -50,10 +59,9 @@ class InvestmentCommitteeService:
     ) -> CommitteeAssessment:
         review_at = as_of or proposal.as_of
         CommitteeInputValidationService().validate(opinions, proposal, risk_assessment, risk_decision, review_at, self.config)
-        case = ResearchCaseAssemblyService().assemble(opinions, self.config.required_specialist_roles)
-        alignment = CommitteeAlignmentService().calculate(
-            case, len(self.config.required_specialist_roles), self.config.dissent_escalation_threshold
-        )
+        required_roles = self._required_roles()
+        case = ResearchCaseAssemblyService().assemble(opinions, required_roles)
+        alignment = CommitteeAlignmentService().calculate(case, len(required_roles), self.config.dissent_escalation_threshold)
         portfolio = CommitteePortfolioReviewService().review(proposal, case, self.config)
         risk = CommitteeRiskGovernanceService().evaluate(risk_assessment, risk_decision)
         conflicts = CommitteeConflictService().identify(case, portfolio, risk)
@@ -154,10 +162,9 @@ class InvestmentCommitteeService:
         risk_assessment: RiskAssessment,
         risk_decision: RiskDecision,
     ) -> CommitteeRecommendation:
-        case = ResearchCaseAssemblyService().assemble(opinions, self.config.required_specialist_roles)
-        alignment = CommitteeAlignmentService().calculate(
-            case, len(self.config.required_specialist_roles), self.config.dissent_escalation_threshold
-        )
+        required_roles = self._required_roles()
+        case = ResearchCaseAssemblyService().assemble(opinions, required_roles)
+        alignment = CommitteeAlignmentService().calculate(case, len(required_roles), self.config.dissent_escalation_threshold)
         portfolio = CommitteePortfolioReviewService().review(proposal, case, self.config)
         risk = CommitteeRiskGovernanceService().evaluate(risk_assessment, risk_decision)
         return CommitteeDeliberationService().recommend(
@@ -169,6 +176,7 @@ class InvestmentCommitteeService:
             sum(item.unresolved and item.severity in {"high", "critical"} for item in assessment.conflicts),
             portfolio,
             risk,
+            assessment.data_quality_score,
             assessment.unanswered_questions,
             self.config,
         )

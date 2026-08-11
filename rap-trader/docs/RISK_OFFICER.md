@@ -33,3 +33,6 @@ python -m app.cli.risk --proposal-json proposal.json --history-json history.json
 API endpoints are `GET /risk/health`, `GET /risk/metadata`, `POST /risk/assess`, and `POST /risk/review`. POST bodies contain `proposal` and may contain `historical_bars`, `liquidity_inputs`, and `constraints`.
 
 The Risk Officer does not place trades, construct executable instructions, estimate fills, or connect to external services.
+## Phase 12 governance precedence
+
+The Investment Committee consumes the Risk Officer assessment and decision without weakening them. `REJECT` is non-overridable, `INSUFFICIENT_DATA` blocks approval, and `REQUIRE_MODIFICATION` forces revision. `APPROVE` is necessary but not sufficient for committee approval.

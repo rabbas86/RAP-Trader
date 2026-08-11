@@ -127,3 +127,7 @@ Snapshots are research-only (`research_only=true`, `suitable_for_live_trading=fa
 # Risk Officer endpoints
 
 Phase 11 exposes `GET /risk/health`, `GET /risk/metadata`, `POST /risk/assess`, and `POST /risk/review`. Requests supply a complete `PortfolioProposal` plus optional historical bars, liquidity observations, and constraints. Responses are research-only; there are no risk execution endpoints.
+
+# Investment Committee endpoints
+
+Phase 12 exposes `GET /committee/health`, `GET /committee/metadata`, `POST /committee/assess`, and `POST /committee/review`. Requests contain specialist opinions, a portfolio proposal, risk assessment, risk decision, and optional committee policy/as-of. Review returns both assessment and recommendation. There is no execute, order, broker, or Chairman endpoint.
