@@ -1,5 +1,7 @@
 # Safety
 
+Phase 13 Chairman decisions govern research only. They never authorize execution, create orders, call brokers or `ExecutionService`, bypass the Risk Officer, or bypass the Investment Committee. Risk `REJECT` is non-overridable and Risk `INSUFFICIENT_DATA` can never become approval.
+
 Phase 6 is research-only, excludes observations after `as_of`, and has no broker, execution, risk-approval, portfolio-allocation, committee, Chairman, or live-trading integration.
 
 - Offline Kronos predictions are not investment advice, are explicitly unsuitable for live trading, and cannot submit orders or bypass risk controls.

@@ -1,5 +1,7 @@
 # Investment Committee
 
+Phase 13 now implements the required Chairman governance stage. The Chairman may retain or make a committee outcome more conservative, but cannot bypass the committee, override Risk `REJECT`, or authorize execution.
+
 Phase 12 is a deterministic, offline cross-functional research-governance layer. It preserves the Technical Analyst, Fundamental Analyst, Macro Economist, and News Analyst views; reviews the Phase 10 `PortfolioProposal`; and applies the Phase 11 `RiskAssessment` and `RiskDecision` before producing a `CommitteeAssessment` and `CommitteeRecommendation`.
 
 Every output is `research_only=true`, `suitable_for_live_trading=false`, and `decision_ready=false`. An approval means only that a research proposal passed committee policy. It cannot create an order, call a broker, execute a trade, or authorize live trading. `requires_chairman_review=true` records that the separate, unimplemented Chairman stage would still be required.

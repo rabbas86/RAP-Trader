@@ -1,5 +1,7 @@
 # API
 
+Phase 13 exposes read/review-only Chairman governance at `GET /chairman/health`, `GET /chairman/metadata`, `POST /chairman/assess`, and `POST /chairman/review`. No Chairman execution endpoint exists.
+
 Phase 6 adds `GET /analysts/technical/snapshot` (`ticker`, `timeframe`, `lookback`, optional UTC `as_of`) and extends `POST /analysts/technical/analyze` with structured evidence.
 
 ## `GET /health`

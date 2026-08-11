@@ -2,7 +2,7 @@
 
 Phase 11 adds a deterministic, offline, portfolio-level risk review of a Phase 10 `PortfolioProposal`. It produces an immutable `RiskAssessment` and `RiskDecision`; both are permanently marked `research_only=true`, `suitable_for_live_trading=false`, and `decision_ready=false`.
 
-Phase 11 is implemented. It is distinct from the Phase 1 `RiskEngine`, which remains the execution/trade-level safety control. Investment Committee and Chairman remain future phases.
+Phase 11 is implemented. It is distinct from the Phase 1 `RiskEngine`, which remains the execution/trade-level safety control. Phase 12 Investment Committee and Phase 13 Chairman consume its outputs for research governance; neither can override Risk `REJECT` or authorize execution.
 
 ## Inputs and outputs
 

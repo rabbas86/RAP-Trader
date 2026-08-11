@@ -1,5 +1,7 @@
 # Architecture
 
+The research-governance hierarchy is specialist research -> Portfolio Manager proposal -> Risk Officer decision -> Investment Committee recommendation -> Chairman decision. The Chairman can make an outcome more conservative but cannot override risk, bypass committee review, or reach brokerage/execution.
+
 Technical analysis separates indicator orchestration, causal structure, level clustering, and deterministic synthesis. A trace DAG links requests and sources through evidence to research opinions.
 
 RAP Trader is a modular monolith. API routes translate HTTP requests; domain models define contracts; services isolate market data, analysis, decisions, risk, portfolio state, brokerage, and execution.

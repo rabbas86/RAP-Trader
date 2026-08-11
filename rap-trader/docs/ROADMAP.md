@@ -1,5 +1,7 @@
 # Roadmap
 
+- Phase 13 — Chairman (implemented: deterministic offline final research governance with absolute risk precedence, committee accountability, provenance, trace, API, and CLI).
+
 - Phase 12 — Investment Committee (implemented: deterministic offline cross-functional research governance with non-overridable risk precedence, dissent protection, provenance, API, and CLI).
 
 - Phase 6: complete technical analyst architecture (implemented).
