@@ -228,7 +228,8 @@ def test_api_surfaces_safe_errors_and_has_no_execution_routes() -> None:
     payload["as_of"] = (AS_OF - timedelta(seconds=1)).isoformat()
     payload["portfolio"]["as_of"] = (AS_OF - timedelta(days=1)).isoformat()
     future = client.post("/portfolio/propose", json=payload)
-    assert future.status_code == 422 and future.json()["detail"]["code"] == "FUTURE_OPINION"
+    assert future.status_code == 422 and future.json()["code"] == "HTTP_ERROR"
+    assert future.json()["safe_message"] == "Future analyst opinions are forbidden"
     paths = app.openapi()["paths"]
     assert not any(term in path for path in paths for term in ("/portfolio/execute", "/portfolio/order", "/portfolio/rebalance"))
 

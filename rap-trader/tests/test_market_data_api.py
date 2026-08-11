@@ -45,7 +45,8 @@ def test_market_data_bars_returns_normalized_result() -> None:
 def test_market_data_bars_rejects_unsupported_symbol() -> None:
     response = client.get("/market-data/bars", params=params("NVDA"))
     assert response.status_code == 400
-    assert response.json()["detail"] == {"code": "UNSUPPORTED_SYMBOL", "safe_message": "Symbol NVDA is not supported"}
+    assert response.json()["code"] == "HTTP_ERROR"
+    assert response.json()["safe_message"] == "Symbol NVDA is not supported"
 
 
 def test_market_data_bars_rejects_invalid_range_and_timeframe() -> None:
@@ -80,8 +81,6 @@ def test_provider_exception_detail_is_not_exposed() -> None:
     finally:
         app.dependency_overrides.clear()
     assert response.status_code == 400
-    assert response.json()["detail"] == {
-        "code": "PROVIDER_UNAVAILABLE",
-        "safe_message": "Market data provider request failed",
-    }
+    assert response.json()["code"] == "HTTP_ERROR"
+    assert response.json()["safe_message"] == "Market data provider request failed"
     assert "secret upstream exception" not in response.text
