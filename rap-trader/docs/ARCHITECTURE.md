@@ -130,3 +130,63 @@ The offline committee sits after specialist research, portfolio construction, an
 ## Canonical research runs
 
 `ResearchRun` is the frozen, versioned identity and lifecycle contract for a complete decision run. `RunEvent` is its immutable, append-only causal record: positive sequence numbers and prior-event hashes form a verifiable chain, while correlation and causation IDs preserve provenance. UUID5 identities and SHA-256 fingerprints are derived only from normalized canonical content, including UTC timestamps and type-aware set ordering. Both contracts permanently enforce research-only, paper-only operation and `suitable_for_live_trading=false`.
+
+# Phase 15B — Immutable Artifact Envelope and Canonical Artifact Hashing
+
+Phase 15B adds the immutable artifact contract used to wrap durable research and paper-trading outputs in a replayable, auditable envelope. This phase defines the boundary and identity rules only; persistence, repositories, ledgers, and execution engines remain out of scope.
+
+## Artifact boundary
+
+All top-level RAP-Trader research or paper-trading outputs that need durable identity, lineage, or replay are wrapped in `ArtifactEnvelope`. The envelope never modifies the underlying payload schema; it stores metadata, provenance, and a SHA-256 payload hash derived from Phase 15A canonical bytes.
+
+Included artifact types:
+- `research_data_snapshot`
+- `trade_decision`
+- `historical_bars_result`
+- `backtest_summary`
+- `research_run`
+- `run_event`
+
+## Artifact inventory
+
+| artifact | status | rationale |
+| --- | --- | --- |
+| `ResearchDataSnapshot` | included | canonical point-in-time input across data platform, features, analysts, backtests, and run events |
+| `TradeDecision` | included | final deterministic output of the decision pipeline; must be replayable and auditable |
+| `HistoricalBarsResult` | included | input boundary for analysis and backtesting; carries provider, session, adjustment, and lookahead-safe provenance |
+| `BacktestSummary` | included | deterministic offline backtesting output used for research opinion and signal history |
+| `ResearchRun` | included | top-level research run identity; envelopes preserve versioned run metadata in durable artifacts |
+| `RunEvent` | included | causal event log for a run; envelope preserves prior-event hash chain and event provenance |
+| `FeatureSnapshot` | excluded | MIFP internal state is already immutable and cached by deterministic identity; envelope boundary is deferred until feature replay is required |
+| `FundamentalSnapshot` | excluded | fundamental input wrapper is already deterministic and consumed through `CompanyFundamentals`; canonicalization and replay are owned by the fundamental analyst boundary |
+| `AnalystOpinion` / macro/news opinions | excluded | Phase 7.5 lifecycle outputs are already traceable and research-only; envelope boundary should be added at opinion persistence, not in the domain contract |
+| `KronosPrediction` | excluded | deterministic, cached, research-only prediction output; envelope boundary is deferred to forecast persistence/replay |
+| portfolio, risk, broker, execution outputs | excluded | paper/live execution, portfolio construction, broker integration, and live risk belong to later phases |
+
+## Canonical payload hashing
+
+`ArtifactEnvelope` relies on the approved Phase 15A canonical implementation in `app/domain/canonical.py`. The payload hash is `sha256_fingerprint(payload)`, which canonicalizes the payload to deterministic JSON bytes before hashing. Supported canonical content includes timestamps, enums, tuples, mappings, nested Pydantic models, and deterministic `set`/`frozenset` values. Do not introduce a second canonical JSON implementation.
+
+## Artifact identity
+
+`artifact_id` is deterministic and calculated only after validation and normalization. Identity material includes:
+- `artifact_type`
+- `schema_version`
+- `logical_as_of`
+- `producer_version`
+- `payload_hash`
+- normalized provenance references
+
+Identity material is canonicalized and then hashed with SHA-256. The same immutable artifact material always yields the same `artifact_id`; any identity-bearing change produces a different `artifact_id`. Do not use `uuid4`; prefer content-addressed SHA-256 IDs for artifacts.
+
+## Mandatory provenance
+
+`ArtifactEnvelope` never silently accepts unknown provenance. Empty or missing provenance fails validation. Blank or malformed `ProvenanceReference` fields fail validation. `ProvenanceReferenceKind` restricts upstream sources to typed categories such as `research_run`, `artifact`, `research_data_snapshot`, `source_dataset`, `model_input`, or `deterministic_source`. If a source-less artifact must exist, represent it with an explicit typed provenance form rather than an empty collection.
+
+## Replay and audit purpose
+
+Envelopes make research and paper-trading outputs durable and replayable without changing existing domain schemas. They preserve existing canonical fingerprint behavior and research-only/paper-only safety controls. `verify_payload()` recomputes the canonical payload hash and compares it to the stored hash; tampered payloads are rejected.
+
+## Non-goals
+
+Phase 15B does not implement persistence, storage, databases, event replay engines, paper execution, portfolio construction, broker integration, live trading, experiment tracking, or distributed artifact repositories. Those remain future phases.

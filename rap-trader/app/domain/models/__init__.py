@@ -1,3 +1,10 @@
+from app.domain.models.artifact import (
+    ARTIFACT_SCHEMA_VERSION,
+    ArtifactEnvelope,
+    ArtifactType,
+    ProvenanceReference,
+    ProvenanceReferenceKind,
+)
 from app.domain.models.analyst import (
     AnalysisDirection,
     AnalysisLimitation,
@@ -133,6 +140,7 @@ from app.domain.models.risk import (
 from app.domain.models.technical import MarketStructureState, SwingPoint, TechnicalAnalysisSnapshot, TechnicalIndicatorValue, TechnicalLevel
 
 __all__ = [
+    "ARTIFACT_SCHEMA_VERSION",
     "BACKTEST_SCHEMA_VERSION",
     "GENESIS_EVENT_HASH",
     "RESEARCH_RUN_SCHEMA_VERSION",
@@ -151,6 +159,8 @@ __all__ = [
     "AnalystOpinion",
     "AnalystRequest",
     "AnalystRole",
+    "ArtifactEnvelope",
+    "ArtifactType",
     "Assumption",
     "BacktestError",
     "BacktestErrorCodes",
@@ -177,21 +187,6 @@ __all__ = [
     "EvaluationWindow",
     "EventImportance",
     "EventRecord",
-    "EvidenceItem",
-    "EvidenceStrength",
-    "EvidenceType",
-    "FeatureCategory",
-    "FeatureDependency",
-    "FeatureError",
-    "FeatureId",
-    "FeatureMetadata",
-    "FeatureSnapshot",
-    "FeatureSnapshotRequest",
-    "FeatureStoreHealth",
-    "FeatureStoreStatistics",
-    "FeatureValue",
-    "FeatureVector",
-    "FinancialStatementPeriod",
     "ForecastBar",
     "ForecastMetrics",
     "Frequency",
@@ -224,6 +219,8 @@ __all__ = [
     "PeriodTypeStr",
     "PortfolioContext",
     "ProvenanceRecord",
+    "ProvenanceReference",
+    "ProvenanceReferenceKind",
     "ProviderBacktestResult",
     "ProviderHealth",
     "QualitySummary",
