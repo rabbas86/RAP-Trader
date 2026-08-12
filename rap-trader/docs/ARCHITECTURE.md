@@ -131,6 +131,60 @@ The offline committee sits after specialist research, portfolio construction, an
 
 `ResearchRun` is the frozen, versioned identity and lifecycle contract for a complete decision run. `RunEvent` is its immutable, append-only causal record: positive sequence numbers and prior-event hashes form a verifiable chain, while correlation and causation IDs preserve provenance. UUID5 identities and SHA-256 fingerprints are derived only from normalized canonical content, including UTC timestamps and type-aware set ordering. Both contracts permanently enforce research-only, paper-only operation and `suitable_for_live_trading=false`.
 
+# Phase 15C — Durable Artifact Store
+
+Phase 15C adds durable persistence for the immutable `ArtifactEnvelope` contract defined in Phase 15B. This phase introduces a storage-backend-independent `ArtifactStore` abstraction with two canonical implementations: `InMemoryArtifactStore` for deterministic tests/development, and `FileArtifactStore` for durable local persistence.
+
+## ArtifactStore responsibilities
+
+`ArtifactStore` owns durable persistence, verified retrieval, deterministic listing, and direct provenance resolution. It does not modify `ArtifactEnvelope` contracts or payload schemas. Persistence does not confer execution authority, decision readiness, or live-trading suitability.
+
+## Immutable append-only semantics
+
+Artifacts are immutable once written. The store never mutates persisted content. Writes are content-addressed by deterministic `artifact_id`; any material change produces a new artifact identity.
+
+## Idempotent writes
+
+Repeating an identical `put()` for an existing `artifact_id` is a no-op and returns the existing artifact. No duplicate copies are created.
+
+## Conflict rejection
+
+A write that would replace an existing artifact with different bytes is rejected. The store fails closed instead of silently overwriting.
+
+## Corruption detection
+
+Every read verifies the persisted envelope:
+
+1. valid `ArtifactEnvelope` JSON/model structure
+2. valid `artifact_id` format
+3. valid `payload_hash` format
+4. payload still hashes to `payload_hash`
+5. recomputed deterministic artifact identity equals persisted `artifact_id`
+6. supported `schema_version`
+7. valid non-empty provenance
+
+If any check fails, the store raises `ArtifactCorruptedError` and does not return corrupted content.
+
+## Atomic persistence
+
+`FileArtifactStore` writes via `tempfile.mkstemp` + `os.replace`. Partial/temporary files are never exposed as final artifacts, and conflicting writes do not silently replace existing artifacts.
+
+## Deterministic listing/query
+
+`list_ids()` returns stable, sorted artifact IDs. Optional bounded filters (`artifact_type`, `logical_as_of`, `producer_version`) allow deterministic queries without turning the store into a general database.
+
+## Direct provenance resolution
+
+`get_direct_dependencies(artifact_id)` resolves only direct provenance references of kind `artifact`. It does not recursively walk a full DAG; full dependency reconstruction belongs to a later replay phase.
+
+## Backend independence
+
+The `ArtifactStore` interface is storage-backend independent. Future backends (object storage, SQL, ClickHouse) can implement the same contract without changing callers.
+
+## Relationship to future replay
+
+Phase 15C ends at durable artifact persistence and basic provenance retrieval. It does not implement `DecisionRun`, full replay DAGs, outcome attribution, broker integration, execution routing, or live trading.
+
 # Phase 15B — Immutable Artifact Envelope and Canonical Artifact Hashing
 
 Phase 15B adds the immutable artifact contract used to wrap durable research and paper-trading outputs in a replayable, auditable envelope. This phase defines the boundary and identity rules only; persistence, repositories, ledgers, and execution engines remain out of scope.
