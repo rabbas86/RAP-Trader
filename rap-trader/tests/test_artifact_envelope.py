@@ -455,7 +455,7 @@ def test_representative_artifacts_for_included_types() -> None:
 def test_existing_payload_schemas_remain_unchanged() -> None:
     snapshot = _snapshot()
     payload = snapshot.model_dump(mode="json")
-    envelope = envelope_for(ArtifactType.RESEARCH_DATA_SNAPSHOT, payload)
+    envelope_for(ArtifactType.RESEARCH_DATA_SNAPSHOT, payload)
     restored_snapshot = ResearchDataSnapshot.model_validate_json(snapshot.model_dump_json())
     assert restored_snapshot.snapshot_id == snapshot.snapshot_id
     assert tuple(restored_snapshot.records) == snapshot.records

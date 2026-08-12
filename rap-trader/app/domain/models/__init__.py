@@ -1,10 +1,3 @@
-from app.domain.models.artifact import (
-    ARTIFACT_SCHEMA_VERSION,
-    ArtifactEnvelope,
-    ArtifactType,
-    ProvenanceReference,
-    ProvenanceReferenceKind,
-)
 from app.domain.models.analyst import (
     AnalysisDirection,
     AnalysisLimitation,
@@ -29,6 +22,13 @@ from app.domain.models.analyst import (
     ProvenanceRecord,
     TraceEdge,
     TraceNode,
+)
+from app.domain.models.artifact import (
+    ARTIFACT_SCHEMA_VERSION,
+    ArtifactEnvelope,
+    ArtifactType,
+    ProvenanceReference,
+    ProvenanceReferenceKind,
 )
 from app.domain.models.backtesting import (
     BACKTEST_SCHEMA_VERSION,
@@ -187,6 +187,21 @@ __all__ = [
     "EvaluationWindow",
     "EventImportance",
     "EventRecord",
+    "EvidenceItem",
+    "EvidenceStrength",
+    "EvidenceType",
+    "FeatureCategory",
+    "FeatureDependency",
+    "FeatureError",
+    "FeatureId",
+    "FeatureMetadata",
+    "FeatureSnapshot",
+    "FeatureSnapshotRequest",
+    "FeatureStoreHealth",
+    "FeatureStoreStatistics",
+    "FeatureValue",
+    "FeatureVector",
+    "FinancialStatementPeriod",
     "ForecastBar",
     "ForecastMetrics",
     "Frequency",

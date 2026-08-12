@@ -5,14 +5,12 @@ from __future__ import annotations
 import re
 from datetime import datetime
 from enum import StrEnum
-from typing import Any, Literal, TypeVar
+from typing import Any, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.domain.canonical import canonical_bytes, sha256_fingerprint
 from app.domain.models.market_data import UtcDatetime, _require_aware_utc
-
-_T = TypeVar("_T", bound="ArtifactEnvelope")
 
 ARTIFACT_SCHEMA_VERSION: Literal["1.0"] = "1.0"
 ARTIFACT_ID_PATTERN = re.compile(r"^[0-9a-f]{64}$")
@@ -123,7 +121,7 @@ class ArtifactEnvelope(BaseModel):
         return canonical_bytes(payload)
 
     @classmethod
-    def create(cls: type[_T], *, payload: Any, provenance_references: tuple[ProvenanceReference, ...], **values: Any) -> _T:
+    def create(cls, *, payload: Any, provenance_references: tuple[ProvenanceReference, ...], **values: Any) -> Self:
         if not provenance_references:
             raise ValueError("provenance_references must not be empty")
 
