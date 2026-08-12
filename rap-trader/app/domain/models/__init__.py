@@ -114,6 +114,7 @@ from app.domain.models.market_data import (
 from app.domain.models.order import OrderRequest, OrderResult
 from app.domain.models.portfolio import PortfolioContext
 from app.domain.models.prediction import KronosPrediction
+from app.domain.models.research_run import GENESIS_EVENT_HASH, RESEARCH_RUN_SCHEMA_VERSION, ResearchRun, ResearchRunStatus, RunEvent
 from app.domain.models.risk import (
     LegacyRiskAssessment,
     RiskAssessment,
@@ -133,6 +134,8 @@ from app.domain.models.technical import MarketStructureState, SwingPoint, Techni
 
 __all__ = [
     "BACKTEST_SCHEMA_VERSION",
+    "GENESIS_EVENT_HASH",
+    "RESEARCH_RUN_SCHEMA_VERSION",
     "SMA_BASELINE_MODEL_ID",
     "AdjustmentPolicy",
     "AgentEvidence",
@@ -225,6 +228,8 @@ __all__ = [
     "ProviderHealth",
     "QualitySummary",
     "ResearchDataSnapshot",
+    "ResearchRun",
+    "ResearchRunStatus",
     "ResearchSignal",
     "ResearchSignalRow",
     "RevisionPolicy",
@@ -238,6 +243,7 @@ __all__ = [
     "RiskMetric",
     "RiskModification",
     "RiskSeverity",
+    "RunEvent",
     "SessionPolicy",
     "SnapshotErrorCode",
     "SnapshotProvenance",

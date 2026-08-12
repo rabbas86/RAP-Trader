@@ -126,3 +126,7 @@ The Phase 11 Risk Officer is implemented as deterministic, offline portfolio-pro
 ## Phase 12 Investment Committee
 
 The offline committee sits after specialist research, portfolio construction, and Risk Officer review. Focused services assemble the research case, measure alignment, classify conflicts, preserve dissent, review portfolio implications, enforce risk precedence, create questions, and synthesize deterministic outputs. SHA-256 provenance and a UUID5 acyclic trace preserve every source. The layer has no dependency on broker, execution, order, risk-engine, Chairman, network, or model services.
+
+## Canonical research runs
+
+`ResearchRun` is the frozen, versioned identity and lifecycle contract for a complete decision run. `RunEvent` is its immutable, append-only causal record: positive sequence numbers and prior-event hashes form a verifiable chain, while correlation and causation IDs preserve provenance. UUID5 identities and SHA-256 fingerprints are derived only from normalized canonical content, including UTC timestamps and type-aware set ordering. Both contracts permanently enforce research-only, paper-only operation and `suitable_for_live_trading=false`.
