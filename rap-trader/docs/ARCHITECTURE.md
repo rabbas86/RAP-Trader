@@ -185,6 +185,39 @@ The `ArtifactStore` interface is storage-backend independent. Future backends (o
 
 Phase 15C ends at durable artifact persistence and basic provenance retrieval. It does not implement `DecisionRun`, full replay DAGs, outcome attribution, broker integration, execution routing, or live trading.
 
+# Phase 15D — Decision Run Replay DAG
+
+Phase 15D adds deterministic decision-lineage replay on top of Phase 15C's durable artifact store. The goal is reconstruction and verification only: from a persisted terminal `TradeDecision` artifact, rebuild the exact immutable lineage graph and produce a stable `DecisionRunManifest`. No recomputation, live trading, broker access, or LLM rerun is involved.
+
+## Verified replay boundary
+
+`ReplayService` is the production replay boundary. It always loads artifacts through `ArtifactStore`, always performs Phase 15C integrity verification, and never bypasses provenance or payload checks. There is no `unsafe_mode`, `skip_validation`, `bypass_integrity`, or equivalent production option.
+
+## Pure graph builder
+
+The graph algorithm is extracted into `ReplayGraphBuilder`, a pure component that operates on already-resolved node and dependency metadata. It owns cycle detection, self-cycle detection, deterministic traversal, topological ordering, depth limits, node limits, temporal validation, and deterministic graph fingerprint inputs. `ReplayService` converts verified `ArtifactEnvelope` objects into this metadata and delegates graph construction to the builder.
+
+## DecisionRunManifest identity
+
+`DecisionRunManifest` accepts both `list` and `tuple` inputs at validation boundaries for:
+- `ordered_graph_nodes`
+- `ordered_graph_edges`
+- `root_artifact_ids`
+
+Internally these are normalized to immutable tuples. List and tuple representations must produce identical canonical identity and fingerprint.
+
+## Deterministic guarantees
+
+Replay graphs are deterministic for identical stored artifacts. Traversal uses bounded BFS/DFS over verified provenance, deduplicates edges, and emits sorted nodes/edges/roots with stable topological ordering. Temporal validation rejects lookahead: upstream artifact timestamps must not be later than downstream timestamps.
+
+## Integrity preservation
+
+Replay does not weaken Phase 15B/15C contracts. Artifact envelope identity, payload hashing, schema versioning, and non-empty provenance remain enforced by the store. Replay can only read and reconstruct; it never mutates persisted artifacts.
+
+## Non-goals
+
+Phase 15D does not add execution routing, broker integration, live trading, recomputation, LLM reruns, opinion promotion, or new public hooks that bypass artifact integrity.
+
 # Phase 15B — Immutable Artifact Envelope and Canonical Artifact Hashing
 
 Phase 15B adds the immutable artifact contract used to wrap durable research and paper-trading outputs in a replayable, auditable envelope. This phase defines the boundary and identity rules only; persistence, repositories, ledgers, and execution engines remain out of scope.

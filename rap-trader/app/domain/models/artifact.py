@@ -23,6 +23,17 @@ class ArtifactType(StrEnum):
     BACKTEST_SUMMARY = "backtest_summary"
     RESEARCH_RUN = "research_run"
     RUN_EVENT = "run_event"
+    FEATURE_SNAPSHOT = "feature_snapshot"
+    FUNDAMENTAL_SNAPSHOT = "fundamental_snapshot"
+    KRONOS_PREDICTION = "kronos_prediction"
+    ANALYST_OPINION = "analyst_opinion"
+    MACRO_OPINION = "macro_opinion"
+    NEWS_OPINION = "news_opinion"
+    PORTFOLIO_PROPOSAL = "portfolio_proposal"
+    RISK_DECISION = "risk_decision"
+    INVESTMENT_COMMITTEE_DECISION = "investment_committee_decision"
+    CHAIRMAN_DECISION = "chairman_decision"
+    DECISION_RUN_MANIFEST = "decision_run_manifest"
 
 
 class ProvenanceReferenceKind(StrEnum):
