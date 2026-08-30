@@ -185,6 +185,91 @@ The `ArtifactStore` interface is storage-backend independent. Future backends (o
 
 Phase 15C ends at durable artifact persistence and basic provenance retrieval. It does not implement `DecisionRun`, full replay DAGs, outcome attribution, broker integration, execution routing, or live trading.
 
+# Phase 16A — Historical Replay Contract + Backtest Run Manifest
+
+Phase 16A adds the immutable canonical contracts for historical replay and backtest execution. It defines WHAT a replay run is, not HOW to execute it. No market data is fetched, no orders are placed, and no broker connectivity is added.
+
+## Historical Replay Specification
+
+`HistoricalReplaySpecification` is the frozen, versioned specification for a complete historical replay/backtest. Canonical fields include:
+
+- `specification_id` and deterministic `run_id`
+- `logical_as_of`, `recorded_at`, and `producer` provenance
+- `start_time` and `end_time`
+- `instruments` and `timeframes`
+- `decision_cadence`
+- `data_boundary_description`
+- `point_in_time_policy`
+- `strategy_identities`, `model_identities`, and `config_fingerprints`
+- `execution_methodology` and `cost_methodology`
+- `initial_capital`, `base_currency`, and optional `benchmark_identities`
+- `deterministic_seed`
+- `notes`
+
+The specification is immutable and deterministically identified. The same canonical specification material always yields the same `specification_id`; any identity-bearing change produces a different ID. `ResearchRun`/`RunEvent` lifecycle concepts are reused with Phase 16A namespaces for future replay execution events.
+
+## Point-in-time discipline
+
+The specification explicitly declares point-in-time semantics. Historical replay must guarantee:
+
+data.available_at <= simulated_clock
+
+not merely:
+
+data.event_time <= simulated_clock
+
+The `point_in_time_policy` field records whether the run currently enforces `event_time_only` or `available_at_aware`. If the current data model cannot represent availability time, the specification records that constraint cleanly via `notes`/`data_boundary_description` rather than weakening the contract. Phase 16B introduces the historical-clock and data-boundary enforcement; Phase 16A only records the policy.
+
+## Deterministic replay identity
+
+Same canonical specification always yields the same specification identity. Same immutable inputs, methodology identities, and deterministic seed yield reproducible run identity semantics. Wall-clock creation timestamps do not alter semantic identity.
+
+## Backtest Run Manifest
+
+`BacktestRunManifest` is the immutable manifest for one historical replay execution attempt. It references upstream artifacts by immutable IDs only. The manifest includes:
+
+- `replay_run_id`
+- `specification_id`
+- `logical_as_of`
+- `producer_version`
+- `upstream_artifact_ids`
+- `universe_identity`
+- `methodology_identities`
+- `status`
+- `start_time`
+- `end_time`
+- optional `deterministic_seed`
+- optional `notes`
+
+## Immutable state/events
+
+Replay run lifecycle states are:
+
+- `CREATED`
+- `RUNNING`
+- `COMPLETED`
+- `FAILED`
+- `CANCELLED`
+
+History is immutable. State transitions are represented as new immutable run artifacts or events rather than mutating prior history. `HistoricalReplayRun` exposes `transition_to(status)` which returns a new immutable run object with the updated lifecycle appended.
+
+## Artifact envelope types
+
+Two new Phase 16A artifact types are introduced:
+
+- `historical_replay_specification`
+- `backtest_run_manifest`
+
+Execution/order/fill/portfolio artifact types remain out of scope for Phase 16A.
+
+## Research-only safety
+
+Phase 16A and all future historical replay work are research-only. The contracts explicitly prohibit broker connectivity, live order placement, automatic deployment, changing champion configuration, or self-modification. A historical `TradeDecision` must never become a live order. All Phase 16A models enforce `research_only=True`, `paper_trading_only=True`, and `suitable_for_live_trading=False` by default.
+
+## Non-goals
+
+Phase 16A does not execute replay runs, fetch market data, place trades, connect brokers, modify live configuration, or start Phase 16B.
+
 # Phase 15E — Decision Journal
 
 Phase 15E adds an immutable decision journal on top of Phase 15D's replay artifacts. The journal records finalized decisions at decision time only, preserving manifest envelope linkage and deterministic query/index behavior. It does not add outcome data, realized returns, hindsight labels, or execution authority.

@@ -93,6 +93,13 @@ from app.domain.models.fundamental import (
     PeriodType,
     PeriodTypeStr,
 )
+from app.domain.models.historical_replay import (
+    BacktestRunManifest,
+    HistoricalReplayRun,
+    HistoricalReplaySpecification,
+    ReplayRunEvent,
+    ReplayRunStatus,
+)
 from app.domain.models.kronos import (
     SMA_BASELINE_MODEL_ID,
     ForecastBar,
@@ -164,6 +171,7 @@ __all__ = [
     "Assumption",
     "BacktestError",
     "BacktestErrorCodes",
+    "BacktestRunManifest",
     "BacktestRunRequest",
     "BacktestRunResult",
     "BacktestStatus",
@@ -209,6 +217,8 @@ __all__ = [
     "FundamentalSnapshot",
     "HistoricalBarsRequest",
     "HistoricalBarsResult",
+    "HistoricalReplayRun",
+    "HistoricalReplaySpecification",
     "IncomeStatement",
     "KronosError",
     "KronosErrorCodes",
@@ -239,6 +249,8 @@ __all__ = [
     "ProviderBacktestResult",
     "ProviderHealth",
     "QualitySummary",
+    "ReplayRunEvent",
+    "ReplayRunStatus",
     "ResearchDataSnapshot",
     "ResearchRun",
     "ResearchRunStatus",

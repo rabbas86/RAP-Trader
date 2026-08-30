@@ -21,6 +21,8 @@ class ArtifactType(StrEnum):
     TRADE_DECISION = "trade_decision"
     HISTORICAL_BARS_RESULT = "historical_bars_result"
     BACKTEST_SUMMARY = "backtest_summary"
+    HISTORICAL_REPLAY_SPECIFICATION = "historical_replay_specification"
+    BACKTEST_RUN_MANIFEST = "backtest_run_manifest"
     RESEARCH_RUN = "research_run"
     RUN_EVENT = "run_event"
     FEATURE_SNAPSHOT = "feature_snapshot"
