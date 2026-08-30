@@ -38,6 +38,7 @@ class ArtifactType(StrEnum):
     OUTCOME_OBSERVATION = "outcome_observation"
     OUTCOME_EVALUATION = "outcome_evaluation"
     ATTRIBUTION_RECORD = "attribution_record"
+    CHAMPION_CHALLENGER_EVALUATION = "champion_challenger_evaluation"
 
 
 class ProvenanceReferenceKind(StrEnum):
