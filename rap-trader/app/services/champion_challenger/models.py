@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any, Literal
@@ -13,6 +14,39 @@ from app.domain.models.artifact import ArtifactEnvelope, ArtifactType, Provenanc
 from app.domain.models.market_data import UtcDatetime
 
 CHAMPION_CHALLENGER_SCHEMA_VERSION: Literal["1.0"] = "1.0"
+
+
+class _FrozenDict(dict[str, Any]):
+    def __setitem__(self, key: str, value: Any) -> None:
+        raise TypeError("immutable champion/challenger identity")
+
+    def __delitem__(self, key: str) -> None:
+        raise TypeError("immutable champion/challenger identity")
+
+    def pop(self, key: str, *args: Any, **kwargs: Any) -> Any:
+        raise TypeError("immutable champion/challenger identity")
+
+    def popitem(self) -> tuple[str, Any]:
+        raise TypeError("immutable champion/challenger identity")
+
+    def clear(self) -> None:
+        raise TypeError("immutable champion/challenger identity")
+
+    def setdefault(self, key: str, default: Any = None) -> Any:
+        raise TypeError("immutable champion/challenger identity")
+
+    def update(self, *args: Any, **kwargs: Any) -> None:
+        raise TypeError("immutable champion/challenger identity")
+
+
+def _freeze_identity_value(value: Any) -> Any:
+    if isinstance(value, dict) and not isinstance(value, _FrozenDict):
+        return _FrozenDict({key: _freeze_identity_value(item) for key, value in value.items() for item in [_freeze_identity_value(value)]})
+    if isinstance(value, list):
+        return tuple(_freeze_identity_value(item) for item in value)
+    if isinstance(value, tuple):
+        return tuple(_freeze_identity_value(item) for item in value)
+    return value
 
 
 class EvaluationRecommendation(StrEnum):
@@ -100,11 +134,24 @@ class ChampionChallengerEvaluation(BaseModel):
     @field_validator("champion_identity", "challenger_identity", mode="before")
     @classmethod
     def validate_identity(cls, value: object) -> dict[str, Any]:
-        if not isinstance(value, dict):
-            raise TypeError("identity must be a dict")
-        if not value:
+        if isinstance(value, dict):
+            canonical = cls._freeze_identity(value)
+        elif isinstance(value, Mapping):
+            canonical = cls._freeze_identity(dict(value))
+        else:
+            raise TypeError("identity must be a dict-like mapping")
+        if not canonical:
             raise ValueError("identity must not be empty")
-        return value
+        return canonical
+
+    @classmethod
+    def _freeze_identity(cls, value: dict[str, Any]) -> dict[str, Any]:
+        result: dict[str, Any] = {}
+        for key, item in value.items():
+            if not isinstance(key, str):
+                raise TypeError("identity keys must be strings")
+            result[key] = _freeze_identity_value(item)
+        return result
 
     @field_validator("instruments", mode="before")
     @classmethod

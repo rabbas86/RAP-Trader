@@ -270,6 +270,37 @@ def test_immutable_evaluation() -> None:
         evaluation.recommendation = EvaluationRecommendation.REJECT_CHALLENGER
 
 
+def test_identity_nested_mutation_is_immutable() -> None:
+    evaluation = ChampionChallengerEvaluation(
+        evaluation_id="b" * 64,
+        evaluation_as_of=AS_OF,
+        champion_identity={"model_id": "champion-v1", "tags": {"line": "alpha", "meta": {"nested": [1]}}},
+        challenger_identity={"model_id": "challenger-v1", "tags": {"line": "beta", "meta": [{"nested": 1}]}},
+        evaluation_period="2026-08",
+        instruments=("AAPL",),
+        horizon=1,
+        sample_count=10,
+        champion_metrics=_metrics(),
+        challenger_metrics=_metrics(),
+        methodology="phase15h-deterministic-1.0",
+        comparison_assumptions=_assumptions(),
+        recommendation=EvaluationRecommendation.KEEP_CHAMPION,
+        producer_version="1.0",
+    )
+    expected_fingerprint = evaluation.fingerprint()
+    expected_dump = evaluation.model_dump(mode="json")
+
+    with pytest.raises((TypeError, ValueError)):
+        evaluation.champion_identity["tags"]["meta"]["nested"][0] = 9
+    with pytest.raises((TypeError, ValueError)):
+        evaluation.challenger_identity["tags"]["line"] = "changed"
+    with pytest.raises((TypeError, ValueError)):
+        evaluation.challenger_identity["tags"]["meta"][0]["nested"] = 2
+
+    assert evaluation.fingerprint() == expected_fingerprint
+    assert evaluation.model_dump(mode="json") == expected_dump
+
+
 def test_deterministic_identity() -> None:
     store = InMemoryArtifactStore()
     service = ChampionChallengerService(store=store)
@@ -320,8 +351,10 @@ def test_champion_challenger_identity_preserved() -> None:
         recommendation=EvaluationRecommendation.KEEP_CHAMPION,
         producer_version="1.0",
     )
-    assert evaluation.champion_identity == champion
-    assert evaluation.challenger_identity == challenger
+    normalized_champion = ChampionChallengerEvaluation._freeze_identity(champion)
+    normalized_challenger = ChampionChallengerEvaluation._freeze_identity(challenger)
+    assert evaluation.champion_identity == normalized_champion
+    assert evaluation.challenger_identity == normalized_challenger
 
 
 def test_fair_same_sample_comparison() -> None:

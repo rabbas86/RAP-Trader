@@ -381,3 +381,35 @@ Envelopes make research and paper-trading outputs durable and replayable without
 ## Non-goals
 
 Phase 15B does not implement persistence, storage, databases, event replay engines, paper execution, portfolio construction, broker integration, live trading, experiment tracking, or distributed artifact repositories. Those remain future phases.
+
+# Phase 15G — Attribution Engine
+
+Phase 15G adds an observational attribution layer on top of Phase 15F's outcome artifacts. `AttributionService` records deterministic `AttributionRecord` artifacts through `ArtifactStore`; it never modifies historical decisions, observations, or evaluations.
+
+## Observational attribution
+
+`AttributionRecord` is a frozen Pydantic model. Canonical fields include `attribution_id`, `decision_artifact_id`, `decision_run_manifest_id`, `decision_journal_entry_id`, `outcome_evaluation_id`, `symbol`, `decision_at`, `horizon`, `period`, `direction`, `components`, `governance`, `signed_outcome_metric`, `outcome_alignment`, and `producer_version`.
+
+## Phase 15 chain boundaries
+
+The completed Phase 15 chain is canonical serialization/fingerprints, immutable artifact envelopes, durable artifact storage, decision run/replay DAGs, decision journal, outcome journal, attribution engine, and champion/challenger evaluation.
+
+## Immutability and append-only semantics
+
+Historical artifacts are immutable and append-only where intended. Outcome information evaluates T0 and never mutates T0 decision state. No layer rewrites historical research or paper-trading state.
+
+## Attribution behavior
+
+Attribution is observational. It summarizes what actually happened after a decision; it does not change original decision logic or authority.
+
+## Champion/challenger behavior
+
+Champion/challenger recommendations are research-only. Challengers are never automatically deployed. Evaluation results are persisted artifacts, not execution commands.
+
+## No execution or self-modification authority
+
+No Phase 15 layer has broker/execution authority. No layer has self-modification authority. Results stay research outputs; they do not route orders, modify portfolios, or trigger automated deployment.
+
+## Evaluation time and identity contract
+
+`ChampionChallengerEvaluation.evaluation_id` is derived from canonical comparison semantics only: champion/challenger identities, period, instruments, metrics, assumptions, recommendation, and the normalized nested values. It intentionally excludes `producer_version`, `evaluation_as_of`, and `logical_as_of` so two genuinely different semantic evaluations are forced to differ in comparison inputs, not packaging metadata. The persisted point-in-time boundary is `ArtifactEnvelope.logical_as_of`, which is set from the month-precise `evaluation_period`; this timestamp is authoritative for artifact storage, listing, lineage, and replay while `evaluation_id` remains stable for the same semantic comparison. Producer version similarly belongs to envelope provenance and deployment metadata rather than comparison identity. Because semantic differences produce different `evaluation_id` values and different `artifact_id` envelope values under the same `logical_as_of`, the contract remains reproducible and collision-free without introducing producer-version or timestamp noise into identity.
