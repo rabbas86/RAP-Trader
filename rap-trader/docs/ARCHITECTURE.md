@@ -270,6 +270,95 @@ Phase 16A and all future historical replay work are research-only. The contracts
 
 Phase 16A does not execute replay runs, fetch market data, place trades, connect brokers, modify live configuration, or start Phase 16B.
 
+# Phase 16B — Point-in-Time Clock + Historical Data Boundary
+
+Phase 16B adds the deterministic simulated historical clock and the point-in-time data boundary that enforces RAP's anti-lookahead invariant. Phase 16A recorded the policy; Phase 16B enforces it.
+
+## HistoricalClock
+
+`HistoricalClock` is the deterministic simulated clock for a replay run.
+
+- initialized from explicit UTC timestamps only
+- timezone-aware; naive timestamps are rejected
+- monotonically increasing; `advance_to()` and `advance_by()` are the only movement mechanisms
+- cannot consult wall clock
+- optional `start`/`end` replay bounds; movement outside those bounds fails closed
+- `copy()` produces independent clock state for branching analysis
+- failures are typed: `HistoricalClockBackwardError`, `HistoricalClockBoundsError`
+
+## PointInTimeDataBoundary
+
+`PointInTimeDataBoundary` determines which historical records, bars, and observations were legally knowable at the clock's current simulated time.
+
+Core anti-lookahead rule:
+
+```
+available_at <= simulated_clock
+```
+
+`event_time` alone is never sufficient when `available_at` is known.
+
+### Point-in-time modes
+
+- `event_time_only` — degraded mode for data that currently only carries event time. The boundary still requires explicit availability metadata on each record; it does not silently substitute `event_time` for `available_at`.
+- `available_at_aware` — strict mode. Records missing availability metadata are rejected via `PointInTimeMissingAvailabilityError`.
+
+### Market bar availability
+
+Completed bars become available only after the session they cover closes.
+
+- A daily bar dated August 3 is not visible before the August 3 session ends.
+- The boundary computes bar `available_at` from bar timestamp + timeframe step, then applies the same `available_at <= simulated_clock` rule.
+
+### Revision policy
+
+At simulated time T, only revisions whose `available_at <= T` are eligible.
+
+- Multiple eligible revisions for the same logical entity: select the latest eligible revision by deterministic ordering (`available_at`, `revision_number`, record identity).
+- Future revisions are never exposed to earlier simulated times.
+- The boundary never manufactures revision metadata.
+
+## PointInTimeDataSnapshot
+
+`PointInTimeDataSnapshot` is an immutable artifact that records exactly what was visible at a simulated historical time.
+
+- `snapshot_id` is deterministically derived from clock state, specification identity, eligible record/bar/observation identities, source versions, input fingerprints, and methodology version.
+- Clock advancement later does not mutate previously persisted snapshots.
+- Snapshots are persisted as `ArtifactType.POINT_IN_TIME_DATA_SNAPSHOT` artifacts through the existing `ArtifactStore`.
+
+## Determinism
+
+Same inputs always produce the same eligible set and snapshot identity:
+
+- historical clock position
+- persisted input artifacts and their fingerprints
+- point-in-time policy
+- methodology version
+
+No ad-hoc hashing is used; canonical fingerprinting is reused from `app.domain.canonical`.
+
+## No-lookahead guarantees
+
+Future data is explicitly rejected at the boundary:
+
+- future record: `record.available_at > simulated_clock` -> inaccessible
+- future revision: `revision.available_at > simulated_clock` -> inaccessible
+- future completed bar: bar not yet available -> inaccessible
+- later clock advancement may expose the data, but never mutates prior snapshots
+
+## Failure behavior
+
+The boundary fails closed with typed exceptions:
+
+- `PointInTimeLookaheadError` — future data accessed
+- `PointInTimeMissingAvailabilityError` — availability metadata missing in strict mode
+- `PointInTimeTemporalViolationError` — invalid temporal relationship within a record
+- `ArtifactCorruptedError` — propagated from the underlying artifact store
+
+## Non-goals
+
+Phase 16B does not execute decisions, place orders, connect brokers, fetch live data, or start Phase 16C.
+
 # Phase 15E — Decision Journal
 
 Phase 15E adds an immutable decision journal on top of Phase 15D's replay artifacts. The journal records finalized decisions at decision time only, preserving manifest envelope linkage and deterministic query/index behavior. It does not add outcome data, realized returns, hindsight labels, or execution authority.
