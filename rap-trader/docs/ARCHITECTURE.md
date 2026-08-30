@@ -185,6 +185,47 @@ The `ArtifactStore` interface is storage-backend independent. Future backends (o
 
 Phase 15C ends at durable artifact persistence and basic provenance retrieval. It does not implement `DecisionRun`, full replay DAGs, outcome attribution, broker integration, execution routing, or live trading.
 
+# Phase 15E — Decision Journal
+
+Phase 15E adds an immutable decision journal on top of Phase 15D's replay artifacts. The journal records finalized decisions at decision time only, preserving manifest envelope linkage and deterministic query/index behavior. It does not add outcome data, realized returns, hindsight labels, or execution authority.
+
+## DecisionJournalEntry
+
+`DecisionJournalEntry` is a frozen Pydantic model that captures decision-time truth. Canonical fields include:
+
+- `journal_entry_id`
+- `decision_artifact_id`
+- `decision_run_manifest_id`
+- `research_run_id`
+- `symbol`
+- `decision_at`
+- `logical_as_of`
+- `direction`
+- `confidence`
+- `producer_version`
+- `graph_fingerprint`
+
+The entry is immutable and deterministically identified. Its `envelope()` method produces an `ArtifactEnvelope` with `artifact_type=ArtifactType.DECISION_JOURNAL_ENTRY`.
+
+## DecisionJournalService
+
+`DecisionJournalService` persists and queries journal entries through `ArtifactStore`. It maintains in-memory indexes for deterministic filtering without mutating stored artifacts.
+
+Key behaviors:
+
+- **manifest envelope linkage**: the service loads the persisted `DecisionRunManifest` envelope and validates `terminal_artifact_id`, `research_run_id`, and `graph_fingerprint` against the journal entry.
+- **integrity preservation**: store-detected corruption raises `ArtifactCorruptedError` directly; the journal does not obscure lower-level integrity failures.
+- **deterministic queries**: supported filters are `symbol`, `direction`, `decision_at`, `research_run_id`, `decision_artifact_id`, `decision_run_manifest_id`, and `logical_as_of`. Results are returned in insertion order.
+- **idempotency**: recording an identical entry returns the same persisted envelope.
+
+## Phase 15D contract preservation
+
+The journal depends on Phase 15D's envelope and replay contracts but does not modify them. `DecisionRunManifest` remains the persisted payload inside `ArtifactEnvelope`; the journal stores the manifest envelope's `artifact_id` as `decision_run_manifest_id`.
+
+## Non-goals
+
+Phase 15E does not add outcome attribution, realized returns, future prices, outcome scores, broker integration, execution routing, or live-trading signals.
+
 # Phase 15D — Decision Run Replay DAG
 
 Phase 15D adds deterministic decision-lineage replay on top of Phase 15C's durable artifact store. The goal is reconstruction and verification only: from a persisted terminal `TradeDecision` artifact, rebuild the exact immutable lineage graph and produce a stable `DecisionRunManifest`. No recomputation, live trading, broker access, or LLM rerun is involved.
