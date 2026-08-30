@@ -42,6 +42,7 @@ class ArtifactType(StrEnum):
     ATTRIBUTION_RECORD = "attribution_record"
     CHAMPION_CHALLENGER_EVALUATION = "champion_challenger_evaluation"
     POINT_IN_TIME_DATA_SNAPSHOT = "point_in_time_data_snapshot"
+    HISTORICAL_DECISION_STEP = "historical_decision_step"
 
 
 class ProvenanceReferenceKind(StrEnum):

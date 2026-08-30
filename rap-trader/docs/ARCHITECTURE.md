@@ -359,6 +359,72 @@ The boundary fails closed with typed exceptions:
 
 Phase 16B does not execute decisions, place orders, connect brokers, fetch live data, or start Phase 16C.
 
+# Phase 16C — Historical Decision Orchestrator
+
+Phase 16C adds the deterministic historical decision orchestrator on top of Phase 16B's point-in-time snapshots. The orchestrator consumes an immutable `PointInTimeDataSnapshot` and the existing Phase 15/16A/B contracts. It never reaches around the snapshot to query future or live market data directly, and it never places orders or connects to brokers.
+
+## HistoricalDecisionStep
+
+`HistoricalDecisionStep` is the canonical domain record for one historical decision point.
+
+- immutable lifecycle states: `scheduled`, `completed`, `failed`
+- never mutates an invalid `completed` step; completed steps require all canonical linkage IDs
+- `create_completed(...)` validates complete linkage before instantiation
+- `create_failed(...)` records honest failure without completed-only fields
+- identity excludes mutable lineage linkage IDs so the same semantic decision yields the same step identity
+
+## Artifact lineage direction
+
+Phase 16C preserves the existing Phase 15 lineage direction:
+
+- `HistoricalDecisionStep.trade_decision_artifact_id` points to the persisted `TradeDecision`
+- `TradeDecision` never references Phase 16 historical step IDs
+- `DecisionRunManifest` and `DecisionJournalEntry` are persisted artifacts whose IDs are recorded on the step
+
+## Execution contract
+
+`HistoricalDecisionOrchestrator.execute_decision_point(simulated_at)` returns both:
+
+- valid completed `HistoricalDecisionStep`
+- its persisted `ArtifactEnvelope`
+
+The execution sequence is:
+
+1. validate snapshot/specification/clock consistency
+2. load the persisted snapshot envelope through `ArtifactStore`
+3. reject future/outcome/attribution lineage artifacts
+4. run the deterministic pipeline
+5. persist `TradeDecision`, `DecisionRunManifest`, and `DecisionJournalEntry`
+6. create a new valid `completed` `HistoricalDecisionStep` with all required linkage IDs
+7. persist the step envelope
+
+## Snapshot persistence
+
+`load_snapshot_envelope()` continues to resolve through `ArtifactStore`. Unpersisted snapshots are rejected; the test helper must persist the snapshot envelope before constructing the orchestrator.
+
+## Lookahead contamination guard
+
+A historical T0 decision rejects downstream/future-evaluation artifacts if they appear in the snapshot lineage or injected historical pipeline inputs. At minimum, the guard forbids Phase 15 downstream evaluation types such as:
+
+- `OUTCOME_OBSERVATION`
+- `OUTCOME_EVALUATION`
+- `ATTRIBUTION_RECORD`
+- `CHAMPION_CHALLENGER_EVALUATION`
+
+where those `ArtifactType`s exist. The guard inspects actual persisted source lineage and artifact references used for the historical decision.
+
+## Idempotency
+
+Executing the same replay specification, replay run, snapshot, simulated time, pipeline inputs, and methodology must produce the same semantic completed step identity. `idempotent_decision_point(...)` returns the existing persisted step and envelope when the semantic decision already exists.
+
+## JSON round-trip
+
+ArtifactStore payload round-trip remains fully validated. JSON representation converts `UUID -> string`, `tuple -> list`, and `enum -> string` only through narrow validators or existing canonical normalizers. Malformed payloads still fail closed.
+
+## Non-goals
+
+Phase 16C does not redesign earlier phases, place trades, connect brokers, fetch live data, mutate historical `TradeDecision` semantics, or start Phase 16D.
+
 # Phase 15E — Decision Journal
 
 Phase 15E adds an immutable decision journal on top of Phase 15D's replay artifacts. The journal records finalized decisions at decision time only, preserving manifest envelope linkage and deterministic query/index behavior. It does not add outcome data, realized returns, hindsight labels, or execution authority.
