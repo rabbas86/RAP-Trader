@@ -37,6 +37,7 @@ class ArtifactType(StrEnum):
     DECISION_JOURNAL_ENTRY = "decision_journal_entry"
     OUTCOME_OBSERVATION = "outcome_observation"
     OUTCOME_EVALUATION = "outcome_evaluation"
+    ATTRIBUTION_RECORD = "attribution_record"
 
 
 class ProvenanceReferenceKind(StrEnum):
