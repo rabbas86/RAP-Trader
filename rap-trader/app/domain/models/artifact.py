@@ -35,6 +35,8 @@ class ArtifactType(StrEnum):
     CHAIRMAN_DECISION = "chairman_decision"
     DECISION_RUN_MANIFEST = "decision_run_manifest"
     DECISION_JOURNAL_ENTRY = "decision_journal_entry"
+    OUTCOME_OBSERVATION = "outcome_observation"
+    OUTCOME_EVALUATION = "outcome_evaluation"
 
 
 class ProvenanceReferenceKind(StrEnum):

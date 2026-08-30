@@ -225,6 +225,69 @@ The journal depends on Phase 15D's envelope and replay contracts but does not mo
 ## Non-goals
 
 Phase 15E does not add outcome attribution, realized returns, future prices, outcome scores, broker integration, execution routing, or live-trading signals.
+# Phase 15F — Outcome Journal / Evaluation
+
+Phase 15F adds an immutable outcome journal and evaluation layer on top of Phase 15E's decision journal. The goal is to record what happened AFTER a finalized decision, using only future information that evaluates T0. This layer never mutates historical decision artifacts.
+
+## OutcomeObservation
+
+`OutcomeObservation` is a frozen Pydantic model that captures observed market data after a decision time. Canonical fields include:
+
+- `observation_id`
+- `decision_artifact_id`
+- `decision_journal_entry_id`
+- `symbol`
+- `decision_at`
+- `observation_at`
+- `horizon`
+- `evaluation_timeframe`
+- `reference_price_methodology`
+- `observed_future_price_methodology`
+- `reference_price_at_decision`
+- `observed_future_price`
+- `market_data_provider`
+- `adjustment`
+- `session`
+- `outcome_status`
+
+The entry is immutable and deterministically identified. Its `envelope()` method produces an `ArtifactEnvelope` with `artifact_type=ArtifactType.OUTCOME_OBSERVATION`.
+
+## OutcomeEvaluation
+
+`OutcomeEvaluation` is a frozen Pydantic model derived from a decision and its outcome observation. Canonical fields include:
+
+- `evaluation_id`
+- `outcome_observation_id`
+- `decision_artifact_id`
+- `symbol`
+- `decision_at`
+- `direction`
+- `evaluation_horizon`
+- `raw_return`
+- `signed_return`
+- `directionally_correct`
+- `outcome_status`
+- `producer_version`
+
+The evaluation is immutable and deterministically identified. Its `envelope()` method produces an `ArtifactEnvelope` with `artifact_type=ArtifactType.OUTCOME_EVALUATION`.
+
+## OutcomeJournalService
+
+`OutcomeJournalService` persists and queries outcome observations and evaluations through `ArtifactStore`. It maintains in-memory indexes for deterministic filtering without mutating stored artifacts.
+
+Key behaviors:
+
+- **immutable evaluation**: future information evaluates T0 and never modifies historical decision state
+- **deterministic queries**: supported filters include `symbol`, `decision_artifact_id`, `decision_journal_entry_id`, `horizon`, `outcome_status`, `decision_at`, `observation_at`, `evaluation_horizon`, `market_data_provider`, and `producer_version`. Results are returned in insertion order.
+- **idempotency**: recording an identical observation or evaluation returns the same persisted envelope.
+
+## Future-information boundary
+
+Outcome evaluation must obtain market data through `MarketDataProvider` or canonical persisted historical market-data artifacts. No network dependency is required in unit tests.
+
+## Non-goals
+
+Phase 15F does not modify `TradeDecision`, `DecisionRunManifest`, `DecisionJournalEntry`, `ResearchRun`, or historical research artifacts. Future evaluation data never alters historical decision state.
 
 # Phase 15D — Decision Run Replay DAG
 
