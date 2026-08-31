@@ -11,9 +11,9 @@ from collections.abc import Mapping
 from datetime import datetime
 from enum import StrEnum
 from typing import Any, Literal
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
-from uuid import UUID
 
 from app.domain.canonical import sha256_fingerprint
 from app.domain.models.artifact import ArtifactEnvelope, ArtifactType, ProvenanceReference
@@ -293,9 +293,10 @@ class PaperExecutionResult(_PaperFrozenModel):
             raise ValueError("filled_quantity cannot exceed requested_quantity")
         if self.remaining_quantity != self.requested_quantity - self.filled_quantity:
             raise ValueError("remaining_quantity must equal requested_quantity minus filled_quantity")
-        if self.execution_status in {PaperOrderStatus.FILLED, PaperOrderStatus.PARTIALLY_FILLED}:
-            if self.execution_price is None or self.executed_at is None:
-                raise ValueError("filled or partially filled results require execution_price and executed_at")
+        if self.execution_status in {PaperOrderStatus.FILLED, PaperOrderStatus.PARTIALLY_FILLED} and (
+            self.execution_price is None or self.executed_at is None
+        ):
+            raise ValueError("filled or partially filled results require execution_price and executed_at")
         return self
 
     def _identity_material(self) -> dict[str, Any]:

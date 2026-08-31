@@ -11,7 +11,6 @@ from uuid import UUID
 import pytest
 from pydantic import ValidationError
 
-from app.domain.canonical import sha256_fingerprint
 from app.domain.models.artifact import (
     ArtifactEnvelope,
     ArtifactType,
@@ -23,16 +22,13 @@ from app.domain.models.historical_decision import HistoricalDecisionStep
 from app.domain.models.historical_replay import HistoricalReplaySpecification
 from app.domain.models.market_data import HistoricalBarsResult, OHLCVBar, Symbol
 from app.services.artifacts.errors import (
-    ArtifactConflictError,
     ArtifactCorruptedError,
-    ArtifactNotFoundError,
 )
 from app.services.artifacts.file_store import FileArtifactStore
 from app.services.artifacts.memory import InMemoryArtifactStore
 from app.services.historical.clock import HistoricalClock
-from app.services.historical.snapshot import PointInTimeDataSnapshot, build_snapshot
+from app.services.historical.snapshot import build_snapshot
 from app.services.paper_execution.contracts import (
-    PaperExecutionResult,
     PaperFill,
     PaperFillStatus,
     PaperOrder,
@@ -40,16 +36,13 @@ from app.services.paper_execution.contracts import (
     PaperOrderStatus,
 )
 from app.services.paper_execution.errors import (
-    CorruptedDecisionArtifactError,
     InvalidPaperInputError,
     MissingCanonicalSizingError,
     ReplayLinkageError,
-    UnfilledOrderError,
 )
 from app.services.paper_execution.models import (
     FillTimingPolicy,
     PaperExecutionMethodology,
-    UnfilledOrderPolicy,
 )
 from app.services.paper_execution.simulator import PaperExecutionSimulator
 
@@ -324,7 +317,7 @@ class TestPaperExecutionTiming:
 
 class TestMissingPriceAndUnfilled:
     def test_missing_valid_price_returns_unfilled(self) -> None:
-        bars = HistoricalBarsResult(
+        HistoricalBarsResult(
             symbol=Symbol("AAPL"),
             timeframe="1d",
             bars=[

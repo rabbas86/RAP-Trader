@@ -24,16 +24,13 @@ canonically available.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Any
 
-from app.domain.models.historical_replay import HistoricalReplaySpecification, VALID_TIMEFRAMES
+from app.domain.models.historical_replay import VALID_TIMEFRAMES, HistoricalReplaySpecification
 from app.services.artifacts.base import ArtifactStore
-from app.services.historical.clock import TIMEFRAME_DELTAS, HistoricalClock, _bar_available_at, _normalize_timeframe
+from app.services.historical.clock import TIMEFRAME_DELTAS, _bar_available_at, _normalize_timeframe
 from app.services.paper_execution.contracts import (
-    PAPER_EXECUTION_RESULT_SCHEMA_VERSION,
-    PAPER_FILL_SCHEMA_VERSION,
-    PAPER_ORDER_SCHEMA_VERSION,
     PaperExecutionResult,
     PaperFill,
     PaperFillStatus,
@@ -42,10 +39,8 @@ from app.services.paper_execution.contracts import (
     PaperOrderStatus,
 )
 from app.services.paper_execution.errors import (
-    CorruptedDecisionArtifactError,
     InvalidPaperInputError,
     MissingCanonicalSizingError,
-    PaperExecutionError,
     ReplayLinkageError,
     UnfilledOrderError,
 )
@@ -264,7 +259,6 @@ class PaperExecutionSimulator:
         execution_available_at: datetime,
     ) -> Any | None:
         timeframe = bars.timeframe
-        step = TIMEFRAME_DELTAS[_normalize_timeframe(timeframe)]
         eligible_bars = []
         for bar in bars.bars:
             if bar.timestamp <= decision_time:
