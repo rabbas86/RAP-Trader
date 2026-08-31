@@ -14,7 +14,7 @@ Supported historical mode
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, Protocol
 from uuid import uuid4
 
 from app.domain.models.artifact import ArtifactEnvelope, ArtifactType
@@ -44,6 +44,10 @@ _VALID_DECISION_CADENCES = frozenset({"window_close"})
 _DEFAULT_WINDOW_CLOSE_CADENCE = {"1d": timedelta(days=1), "1w": timedelta(weeks=1)}
 
 
+class _DecisionEngine(Protocol):
+    def __call__(self) -> TradeDecision: ...
+
+
 class HistoricalDecisionOrchestrator:
     """Bound deterministic historical decision orchestration to an immutable snapshot."""
 
@@ -55,7 +59,7 @@ class HistoricalDecisionOrchestrator:
         snapshot: PointInTimeDataSnapshot | None,
         store: ArtifactStore,
         mode: str = "DETERMINISTIC_RECOMPUTE",
-        decision_engine: Any | None = None,
+        decision_engine: _DecisionEngine | None = None,
         producer_version: str = "phase16c-1.0",
     ) -> None:
         if snapshot is None:

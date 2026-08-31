@@ -78,7 +78,9 @@ class HistoricalDecisionStep(BaseModel):
     def coerce_replay_run_id(cls, value: object) -> UUID:
         if isinstance(value, str):
             return UUID(value)
-        return value
+        if isinstance(value, UUID):
+            return value
+        raise TypeError("replay_run_id must be a UUID or UUID string")
 
     @field_validator("input_fingerprints", "lineage_artifact_ids", mode="before")
     @classmethod

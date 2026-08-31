@@ -8,6 +8,7 @@ future or live market data directly.
 from __future__ import annotations
 
 from app.domain.models.decision import AgentEvidence
+from app.domain.models.market_data import Timeframe
 from app.domain.models.prediction import KronosPrediction
 from app.services.historical.snapshot import PointInTimeDataSnapshot
 
@@ -19,7 +20,7 @@ class HistoricalSnapshotDecisionAdapter:
         self.snapshot = snapshot
         self.producer_version = producer_version
 
-    def prediction(self, *, ticker: str, timeframe: str = "1d") -> KronosPrediction:
+    def prediction(self, *, ticker: str, timeframe: Timeframe = "1d") -> KronosPrediction:
         """Return a deterministic prediction identity derived from the snapshot."""
         return KronosPrediction(
             ticker=ticker,
@@ -46,7 +47,7 @@ class HistoricalSnapshotDecisionAdapter:
             generated_at=self.snapshot.simulated_at,
         )
 
-    def to_decision_engine_inputs(self, *, ticker: str, timeframe: str = "1d") -> dict[str, object]:
+    def to_decision_engine_inputs(self, *, ticker: str, timeframe: Timeframe = "1d") -> dict[str, object]:
         """Assemble deterministic inputs for the canonical decision boundary."""
         return {
             "prediction": self.prediction(ticker=ticker, timeframe=timeframe),
