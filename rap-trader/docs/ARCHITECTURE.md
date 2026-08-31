@@ -425,6 +425,78 @@ ArtifactStore payload round-trip remains fully validated. JSON representation co
 
 Phase 16C does not redesign earlier phases, place trades, connect brokers, fetch live data, mutate historical `TradeDecision` semantics, or start Phase 16D.
 
+# Phase 16D — Paper Execution Simulator
+
+Phase 16D adds a deterministic, research-only paper execution simulator on top of Phase 16C's historical decision steps. It answers: "If this historical research decision had been submitted under the specified paper-execution methodology, when and at what historically available price could it have been simulated as executed?" It never sends an actual order, never connects to a broker, and never mutates portfolio state.
+
+## Execution chain
+
+```
+HistoricalDecisionStep
+        ↓
+TradeDecision
+        ↓
+PaperExecutionSimulator
+        ↓
+PaperOrder
+        ↓
+PaperFill / PaperExecutionResult
+        ↓
+ArtifactStore
+```
+
+The simulator binds a completed historical decision step to an explicit `PaperExecutionMethodology` and produces immutable `PaperOrder`, `PaperFill`, and `PaperExecutionResult` artifacts through `ArtifactStore`.
+
+## New artifact types
+
+- `paper_order`
+- `paper_fill`
+- `paper_execution_result`
+
+These are persisted as `ArtifactEnvelope` artifacts and reference upstream immutable IDs rather than embedding full upstream payloads.
+
+## Research/paper-only boundary
+
+Phase 16D is explicitly research-only. `PaperExecutionMethodology`, `PaperOrder`, `PaperFill`, and `PaperExecutionResult` all enforce:
+
+- `research_only=True`
+- `paper_trading_only=True`
+- `suitable_for_live_trading=False`
+
+The simulator never reaches a broker adapter, never accepts live execution authority, and never mutates portfolio state.
+
+## Point-in-time-safe execution
+
+The simulator enforces price availability at or before the simulated execution time. For the current completed-bar model, Phase 16D exposes only one honest execution methodology:
+
+- `NEXT_BAR_CLOSE`: a decision at time T is filled after the next completed bar closes, using that bar's close.
+
+The simulator does not use future high/low/open/close information before bar completion under this methodology. If the data model cannot represent intrabar visibility, Phase 16D records that limitation explicitly in the methodology contract rather than weakening the boundary.
+
+## Order/fill lifecycle
+
+Paper execution uses explicit lifecycle statuses: `SUBMITTED`, `FILLED`, `PARTIALLY_FILLED`, `UNFILLED`, `CANCELLED`, and `EXPIRED`. Persisted `PaperOrder` artifacts are immutable; the simulator does not mutate a persisted order from `SUBMITTED` to `FILLED`. Instead, it persists the immutable order plus execution-result/fill artifacts.
+
+## Partial-fill policy
+
+Phase 16D does not fabricate liquidity. It defaults to all-or-none deterministic paper fills when volume/participation data is not canonically available. If partial fills are later supported, they must derive from explicit historical volume assumptions, not arbitrary random percentages.
+
+## Unfilled policy
+
+Unfilled orders are valid research outcomes. The simulator deterministically returns `UNFILLED` when no valid next price exists, symbol data is missing, a required bar is unavailable, execution would exceed the replay end, or the methodology is incompatible with the timeframe/data.
+
+## No-lookahead guarantees
+
+A fill uses only historical prices whose semantic availability is at or before the fill time. The simulator rejects same-bar hindsight and does not use future close prices for earlier execution.
+
+## Idempotency and persistence
+
+Repeated execution with the same inputs produces the same `PaperOrder`, `PaperFill`, and `PaperExecutionResult` identities. All paper execution records are persisted through `ArtifactStore`, so `FileArtifactStore` restart rebuilds the same durable records.
+
+## Future separation
+
+Richer cost models, slippage assumptions, and portfolio accounting are explicitly out of scope for Phase 16D and belong in later phases.
+
 # Phase 15E — Decision Journal
 
 Phase 15E adds an immutable decision journal on top of Phase 15D's replay artifacts. The journal records finalized decisions at decision time only, preserving manifest envelope linkage and deterministic query/index behavior. It does not add outcome data, realized returns, hindsight labels, or execution authority.

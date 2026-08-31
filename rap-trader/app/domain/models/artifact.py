@@ -43,6 +43,9 @@ class ArtifactType(StrEnum):
     CHAMPION_CHALLENGER_EVALUATION = "champion_challenger_evaluation"
     POINT_IN_TIME_DATA_SNAPSHOT = "point_in_time_data_snapshot"
     HISTORICAL_DECISION_STEP = "historical_decision_step"
+    PAPER_ORDER = "paper_order"
+    PAPER_FILL = "paper_fill"
+    PAPER_EXECUTION_RESULT = "paper_execution_result"
 
 
 class ProvenanceReferenceKind(StrEnum):
@@ -52,6 +55,10 @@ class ProvenanceReferenceKind(StrEnum):
     SOURCE_DATASET = "source_dataset"
     MODEL_INPUT = "model_input"
     DETERMINISTIC_SOURCE = "deterministic_source"
+    HISTORICAL_DECISION_STEP = "historical_decision_step"
+    PAPER_ORDER = "paper_order"
+    PAPER_FILL = "paper_fill"
+    PAPER_EXECUTION_RESULT = "paper_execution_result"
 
 
 class ProvenanceReference(BaseModel):
