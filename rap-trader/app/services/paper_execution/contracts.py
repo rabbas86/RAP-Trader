@@ -7,18 +7,16 @@ portfolio, or live execution components.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import datetime
 from enum import StrEnum
-from typing import Any, Literal, Mapping
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from uuid import UUID
 
 from app.domain.canonical import sha256_fingerprint
 from app.domain.models.artifact import ArtifactEnvelope, ArtifactType, ProvenanceReference
-from app.domain.models.decision import TradeDecision
-from app.domain.models.historical_decision import HistoricalDecisionStep
-from app.domain.models.historical_replay import HistoricalReplaySpecification
 from app.domain.models.market_data import Symbol, UtcDatetime, _require_aware_utc
 
 PAPER_ORDER_SCHEMA_VERSION: Literal["1.0"] = "1.0"
@@ -66,9 +64,11 @@ class _PaperFrozenModel(BaseModel):
 
 
 def _normalize_paper_timestamp(value: object) -> datetime:
+    if isinstance(value, datetime):
+        return _require_aware_utc(value)
     if isinstance(value, str):
-        value = datetime.fromisoformat(value)
-    return _require_aware_utc(value)
+        return _normalize_paper_timestamp(datetime.fromisoformat(value))
+    raise TypeError("paper timestamp must be a datetime or ISO-8601 string")
 
 
 class PaperOrder(_PaperFrozenModel):
@@ -145,7 +145,7 @@ class PaperOrder(_PaperFrozenModel):
 
     @classmethod
     def create(cls, **values: object) -> PaperOrder:
-        material = dict(values)
+        material: dict[str, object] = dict(values)
         material.setdefault("schema_version", PAPER_ORDER_SCHEMA_VERSION)
         material.setdefault("research_only", True)
         material.setdefault("paper_trading_only", True)
@@ -153,9 +153,11 @@ class PaperOrder(_PaperFrozenModel):
         material.setdefault("status", PaperOrderStatus.SUBMITTED.value)
         material.setdefault("order_type", "market")
         material.pop("paper_order_id", None)
-        provisional = cls.model_validate({"paper_order_id": "0" * 64, **dict(material)})
+        provisional = cls.model_validate({"paper_order_id": "0" * 64, **material})
         paper_order_id = provisional._canonical_paper_order_id()
-        return cls(paper_order_id=paper_order_id, **dict(material))
+        validated_payload = dict(material)
+        validated_payload["paper_order_id"] = paper_order_id
+        return cls.model_validate(validated_payload)
 
     def envelope(self, *, provenance_references: tuple[ProvenanceReference, ...]) -> ArtifactEnvelope:
         return ArtifactEnvelope.create(
@@ -226,14 +228,16 @@ class PaperFill(_PaperFrozenModel):
 
     @classmethod
     def create(cls, **values: object) -> PaperFill:
-        material = dict(values)
+        material: dict[str, object] = dict(values)
         material.setdefault("schema_version", PAPER_FILL_SCHEMA_VERSION)
         material.setdefault("research_only", True)
         material.setdefault("paper_trading_only", True)
         material.setdefault("suitable_for_live_trading", False)
-        provisional = cls.model_validate({"paper_fill_id": "0" * 64, **dict(material)})
+        provisional = cls.model_validate({"paper_fill_id": "0" * 64, **material})
         paper_fill_id = provisional._canonical_paper_fill_id()
-        return cls(paper_fill_id=paper_fill_id, **dict(material))
+        validated_payload = dict(material)
+        validated_payload["paper_fill_id"] = paper_fill_id
+        return cls.model_validate(validated_payload)
 
     def envelope(self, *, provenance_references: tuple[ProvenanceReference, ...]) -> ArtifactEnvelope:
         return ArtifactEnvelope.create(
@@ -309,7 +313,7 @@ class PaperExecutionResult(_PaperFrozenModel):
 
     @classmethod
     def create(cls, **values: object) -> PaperExecutionResult:
-        material = dict(values)
+        material: dict[str, object] = dict(values)
         material.setdefault("schema_version", PAPER_EXECUTION_RESULT_SCHEMA_VERSION)
         material.setdefault("research_only", True)
         material.setdefault("paper_trading_only", True)
@@ -318,7 +322,9 @@ class PaperExecutionResult(_PaperFrozenModel):
         material.setdefault("additional_slippage_bps", 0.0)
         provisional = cls.model_validate({"paper_execution_result_id": "0" * 64, **material})
         paper_execution_result_id = provisional._canonical_paper_execution_result_id()
-        return cls(paper_execution_result_id=paper_execution_result_id, **material)
+        validated_payload = dict(material)
+        validated_payload["paper_execution_result_id"] = paper_execution_result_id
+        return cls.model_validate(validated_payload)
 
     def envelope(self, *, provenance_references: tuple[ProvenanceReference, ...]) -> ArtifactEnvelope:
         logical_as_of = self.executed_at or datetime.fromisoformat("1970-01-01T00:00:00+00:00")

@@ -7,14 +7,13 @@ exchange, or live execution component.
 
 from __future__ import annotations
 
-from datetime import datetime
+from collections.abc import Mapping
 from enum import StrEnum
-from typing import Any, Literal, Mapping
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.domain.canonical import sha256_fingerprint
-from app.domain.models.market_data import UtcDatetime, _require_aware_utc
 
 PAPER_EXECUTION_METHODOLOGY_SCHEMA_VERSION: Literal["1.0"] = "1.0"
 
@@ -131,19 +130,22 @@ class PaperExecutionMethodology(BaseModel):
 
     @classmethod
     def create(cls, **values: object) -> PaperExecutionMethodology:
-        material = dict(values)
+        material: dict[str, object] = dict(values)
         material.setdefault("schema_version", PAPER_EXECUTION_METHODOLOGY_SCHEMA_VERSION)
         material.setdefault("research_only", True)
         material.setdefault("paper_trading_only", True)
         material.setdefault("suitable_for_live_trading", False)
-        provisional = cls.model_validate({"methodology_id": "0" * 64, **dict(material)})
+        material.pop("methodology_id", None)
+        provisional = cls.model_validate({"methodology_id": "0" * 64, **material})
         methodology_id = provisional._canonical_methodology_id()
-        return cls(methodology_id=methodology_id, **dict(material))
+        validated_payload = dict(material)
+        validated_payload["methodology_id"] = methodology_id
+        return cls.model_validate(validated_payload)
 
 
 __all__ = [
-    "FillTimingPolicy",
     "PAPER_EXECUTION_METHODOLOGY_SCHEMA_VERSION",
+    "FillTimingPolicy",
     "PaperExecutionMethodology",
     "PaperOrderType",
     "TimeInForce",
