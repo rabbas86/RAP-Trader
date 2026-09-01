@@ -46,6 +46,9 @@ class ArtifactType(StrEnum):
     PAPER_ORDER = "paper_order"
     PAPER_FILL = "paper_fill"
     PAPER_EXECUTION_RESULT = "paper_execution_result"
+    PORTFOLIO_ACCOUNTING_METHODOLOGY = "portfolio_accounting_methodology"
+    PORTFOLIO_LEDGER_ENTRY = "portfolio_ledger_entry"
+    PORTFOLIO_SNAPSHOT = "portfolio_snapshot"
 
 
 class ProvenanceReferenceKind(StrEnum):

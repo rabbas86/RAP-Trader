@@ -497,6 +497,97 @@ Repeated execution with the same inputs produces the same `PaperOrder`, `PaperFi
 
 Richer cost models, slippage assumptions, and portfolio accounting are explicitly out of scope for Phase 16D and belong in later phases.
 
+# Phase 16E — Portfolio Ledger + Position Accounting
+
+Phase 16E adds a deterministic, research-only paper portfolio ledger on top of Phase 16D's paper execution artifacts. It answers: "Given the exact simulated fills produced by Phase 16D, what was the resulting paper portfolio state at each historical point in time?" It does not send orders, connect to brokers, or mutate live accounts.
+
+## Execution chain
+
+```
+HistoricalDecisionStep
+        ↓
+PaperExecutionResult / PaperFill
+        ↓
+PortfolioLedger
+        ↓
+PositionState
+        ↓
+PortfolioSnapshot
+        ↓
+future Phase 16F costs/slippage/corporate actions
+        ↓
+future Phase 16G performance/risk metrics
+```
+
+## New artifact types
+
+- `portfolio_accounting_methodology`
+- `portfolio_ledger_entry`
+- `portfolio_snapshot`
+
+These are persisted as `ArtifactEnvelope` artifacts and reference upstream immutable IDs rather than embedding full upstream payloads.
+
+## Accounting methodology
+
+Phase 16E introduces an explicit `PortfolioAccountingMethodology` with versioned metadata:
+
+- `cost_basis_method` = `average_cost` in the baseline methodology
+- `allow_shorting` = `false` by default
+- `allow_negative_cash` = `false` by default
+- `valuation_policy` records whether marks are applied explicitly
+
+The same methodology inputs always produce the same `methodology_id`, so downstream snapshots and ledger entries remain reproducible.
+
+## Portfolio snapshot contract
+
+`PortfolioSnapshot` is immutable and deeply immutable. Canonical fields include:
+
+- `portfolio_snapshot_id`
+- `replay_specification_id` / `replay_run_id`
+- `simulated_at` and `base_currency`
+- `cash`, `positions`, `total_cost_basis`, `realized_pnl`
+- optional `unrealized_pnl` / `market_value` when a valid historical mark is supplied
+- `prior_snapshot_id` and `applied_fill_ids`
+- `accounting_methodology_id`
+- `research_only=True`, `paper_trading_only=True`, `suitable_for_live_trading=False`
+
+If no valid mark price is supplied, valuation fields remain `None` rather than fabricating NAV.
+
+## Position accounting
+
+The baseline ledger supports deterministic long/flat accounting only:
+
+- BUY reduces cash by `filled_quantity * execution_price` and updates average cost.
+- SELL increases cash by `filled_quantity * execution_price` and realizes P&L using average cost.
+- Full close zeros quantity, cost basis, average cost, and mark fields.
+- Unauthorized short sells are rejected with a typed accounting error.
+- Cash cannot go negative unless an explicit methodology later authorizes it.
+
+## Ledger semantics
+
+`PortfolioLedger` is append-only. Each `PortfolioLedgerEntry` records:
+
+- `portfolio_snapshot_id`
+- `paper_execution_result_id` / `paper_fill_ids`
+- `prior_portfolio_snapshot_id`
+- `sequence`, `event_type`, and methodology linkage
+
+Unfilled or cancelled execution results may emit an auditable `noop` ledger entry, but they never mutate cash or positions.
+
+## Determinism and idempotency
+
+- Fill ordering is deterministic and tie-broken by canonical artifact identity.
+- Duplicate fills are rejected.
+- Rebuilding `PortfolioLedger` from `ArtifactStore` after restart reconstructs the same indexes.
+- Prior `PortfolioSnapshot` and `PortfolioLedgerEntry` records are never rewritten.
+
+## No-lookahead and safety guarantees
+
+- Marks must be point-in-time-safe historical prices; future marks are rejected.
+- A snapshot at time T cannot change when the clock advances to T+1.
+- Phase 16E has no broker API, order routing, account credentials, live cash account, live position sync, or execution authority.
+
+
 # Phase 15E — Decision Journal
 
 Phase 15E adds an immutable decision journal on top of Phase 15D's replay artifacts. The journal records finalized decisions at decision time only, preserving manifest envelope linkage and deterministic query/index behavior. It does not add outcome data, realized returns, hindsight labels, or execution authority.
