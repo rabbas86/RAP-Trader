@@ -56,6 +56,10 @@ class ArtifactType(StrEnum):
     PERFORMANCE_EVALUATION_METHODOLOGY = "performance_evaluation_methodology"
     HISTORICAL_PERFORMANCE_EVALUATION = "historical_performance_evaluation"
     BENCHMARK_COMPARISON = "benchmark_comparison"
+    WALK_FORWARD_EVALUATION_METHODOLOGY = "walk_forward_evaluation_methodology"
+    WALK_FORWARD_EVALUATION = "walk_forward_evaluation"
+    WALK_FORWARD_FOLD = "walk_forward_fold"
+    HISTORICAL_BACKTEST_REPORT = "historical_backtest_report"
 
 
 class ProvenanceReferenceKind(StrEnum):
