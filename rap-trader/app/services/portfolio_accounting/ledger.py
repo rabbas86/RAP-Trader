@@ -10,10 +10,15 @@ from app.domain.models.market_data import Symbol
 from app.services.artifacts.base import ArtifactStore
 from app.services.paper_execution.contracts import PaperExecutionResult, PaperOrderSide, PaperOrderStatus
 from app.services.portfolio_accounting.errors import (
+    DuplicateCorporateActionError,
+    DuplicateCostApplicationError,
+    IncompatiblePriceAdjustmentError,
     InsufficientCashError,
+    InvalidCorporateActionError,
     InvalidFillError,
     PortfolioAccountingValidationError,
     UnauthorizedShortError,
+    UnsupportedCorporateActionError,
 )
 from app.services.portfolio_accounting.models import (
     PortfolioAccountingMethodology,
@@ -22,6 +27,16 @@ from app.services.portfolio_accounting.models import (
     PortfolioSnapshot,
     PositionState,
 )
+from app.services.portfolio_accounting.phase16f_models import (
+    CorporateActionEvent,
+    CorporateActionType,
+    DividendEntitlement,
+    ExecutionCostAssessment,
+    PortfolioAdjustmentLedgerEntry,
+    PortfolioAdjustmentType,
+)
+
+LedgerEntry = PortfolioLedgerEntry | PortfolioAdjustmentLedgerEntry
 
 
 class PortfolioLedger:
@@ -39,12 +54,17 @@ class PortfolioLedger:
         specification: HistoricalReplaySpecification,
         methodology: PortfolioAccountingMethodology,
         producer_version: str = "phase16e-1.0",
+        price_adjustment_convention: str = "unadjusted",
     ) -> None:
         self.store = store
         self.specification = specification
         self.methodology = methodology
         self.producer_version = producer_version
+        self.price_adjustment_convention = price_adjustment_convention
         self._applied_execution_result_ids: set[str] = set()
+        self._applied_assessment_ids: set[str] = set()
+        self._applied_corporate_action_ids: set[str] = set()
+        self._applied_entitlement_ids: set[str] = set()
         self._sequence = 0
         self._latest_snapshot_id: str | None = None
         self._rebuild_indexes()
@@ -76,6 +96,15 @@ class PortfolioLedger:
             result_id = payload.get("paper_execution_result_id")
             if isinstance(result_id, str) and result_id:
                 self._applied_execution_result_ids.add(result_id)
+            assessment_id = payload.get("assessment_id")
+            if isinstance(assessment_id, str) and assessment_id:
+                self._applied_assessment_ids.add(assessment_id)
+            corporate_action_id = payload.get("corporate_action_id")
+            if isinstance(corporate_action_id, str) and corporate_action_id:
+                self._applied_corporate_action_ids.add(corporate_action_id)
+            entitlement_id = payload.get("entitlement_id")
+            if isinstance(entitlement_id, str) and entitlement_id:
+                self._applied_entitlement_ids.add(entitlement_id)
 
     def initial_snapshot(self) -> tuple[PortfolioSnapshot, PortfolioLedgerEntry]:
         """Create the deterministic initial portfolio snapshot."""
@@ -369,13 +398,13 @@ class PortfolioLedger:
             if fill_id in self._applied_execution_result_ids:
                 raise InvalidFillError(f"fill {fill_id} has already been applied")
 
-    def _persist(self, snapshot: PortfolioSnapshot, ledger_entry: PortfolioLedgerEntry) -> None:
+    def _persist(self, snapshot: PortfolioSnapshot, ledger_entry: LedgerEntry) -> None:
         snapshot_envelope = snapshot.envelope(provenance_references=self._snapshot_provenance(snapshot, ledger_entry))
         ledger_envelope = ledger_entry.envelope(provenance_references=self._ledger_provenance(ledger_entry, snapshot_envelope.artifact_id))
         self.store.put(snapshot_envelope)
         self.store.put(ledger_envelope)
 
-    def _snapshot_provenance(self, snapshot: PortfolioSnapshot, ledger_entry: PortfolioLedgerEntry) -> tuple[ProvenanceReference, ...]:
+    def _snapshot_provenance(self, snapshot: PortfolioSnapshot, ledger_entry: LedgerEntry) -> tuple[ProvenanceReference, ...]:
         references: list[ProvenanceReference] = [
             ProvenanceReference(
                 kind=ProvenanceReferenceKind.ARTIFACT,
@@ -386,10 +415,10 @@ class PortfolioLedger:
             ),
             ProvenanceReference(
                 kind=ProvenanceReferenceKind.ARTIFACT,
-                identifier=ledger_entry.paper_execution_result_id or ledger_entry.portfolio_ledger_entry_id,
-                description="paper execution result applied in this snapshot",
-                producer="rap-trader-phase16d",
-                producer_version="1.0",
+                identifier=ledger_entry.adjustment_id if hasattr(ledger_entry, "adjustment_id") else ledger_entry.portfolio_ledger_entry_id,
+                description="ledger entry identifier for this snapshot",
+                producer="rap-trader-phase16e",
+                producer_version=self.producer_version,
             ),
         ]
         if snapshot.prior_snapshot_id:
@@ -404,7 +433,182 @@ class PortfolioLedger:
             )
         return tuple(references)
 
-    def _ledger_provenance(self, ledger_entry: PortfolioLedgerEntry, snapshot_artifact_id: str) -> tuple[ProvenanceReference, ...]:
+    def _latest_execution_cost_ledger_entry(self) -> PortfolioAdjustmentLedgerEntry:
+        return self._latest_adjustment_ledger_entry(PortfolioAdjustmentType.EXECUTION_COST.value)
+
+    def _latest_corporate_action_ledger_entry(self) -> PortfolioAdjustmentLedgerEntry:
+        return self._latest_adjustment_ledger_entry(PortfolioAdjustmentType.CORPORATE_ACTION_SPLIT.value)
+
+    def _latest_dividend_payment_ledger_entry(self) -> PortfolioAdjustmentLedgerEntry:
+        return self._latest_adjustment_ledger_entry(PortfolioAdjustmentType.DIVIDEND_PAYMENT.value)
+
+    def _latest_adjustment_ledger_entry(self, event_type: str) -> PortfolioAdjustmentLedgerEntry:
+        latest: PortfolioAdjustmentLedgerEntry | None = None
+        for artifact_id in self.store.list_ids():
+            envelope = self.store.get(artifact_id)
+            if envelope.artifact_type != ArtifactType.PORTFOLIO_LEDGER_ENTRY:
+                continue
+            payload = envelope.payload if isinstance(envelope.payload, dict) else {}
+            if payload.get("event_type") != event_type:
+                continue
+            if latest is None or payload.get("sequence", -1) > latest.sequence:
+                latest = PortfolioAdjustmentLedgerEntry.model_validate(payload)
+        if latest is None:
+            raise PortfolioAccountingValidationError(f"no ledger entry found for {event_type}")
+        return latest
+
+    def apply_execution_cost(self, prior_snapshot: PortfolioSnapshot, assessment: ExecutionCostAssessment) -> PortfolioSnapshot:
+        self._ensure_latest_snapshot(prior_snapshot)
+        if assessment.assessment_id in self._applied_assessment_ids:
+            raise DuplicateCostApplicationError(assessment_id=assessment.assessment_id)
+        if self.price_adjustment_convention != "unadjusted":
+            raise IncompatiblePriceAdjustmentError(price_adjustment=self.price_adjustment_convention)
+        cash = round(prior_snapshot.cash - assessment.total_transaction_cost, 10)
+        if cash < -1e-9:
+            raise InsufficientCashError(available_cash=prior_snapshot.cash, required_cash=assessment.total_transaction_cost, symbol="")
+        positions = tuple(prior_snapshot.positions)
+        snapshot = PortfolioSnapshot(
+            portfolio_snapshot_id="0" * 64,
+            replay_specification_id=prior_snapshot.replay_specification_id,
+            replay_run_id=prior_snapshot.replay_run_id,
+            simulated_at=assessment.simulated_at,
+            base_currency=prior_snapshot.base_currency,
+            cash=cash,
+            positions=positions,
+            total_cost_basis=prior_snapshot.total_cost_basis,
+            realized_pnl=prior_snapshot.realized_pnl,
+            unrealized_pnl=prior_snapshot.unrealized_pnl,
+            market_value=prior_snapshot.market_value,
+            prior_snapshot_id=prior_snapshot.portfolio_snapshot_id,
+            applied_fill_ids=prior_snapshot.applied_fill_ids,
+            accounting_methodology_id=self.methodology.methodology_id,
+            producer_version=self.producer_version,
+        )
+        snapshot_id = snapshot._canonical_snapshot_id()
+        snapshot = PortfolioSnapshot.model_validate({**snapshot.model_dump(mode="json"), "portfolio_snapshot_id": snapshot_id})
+        ledger_entry = PortfolioAdjustmentLedgerEntry.create_execution_cost(
+            snapshot=snapshot,
+            assessment=assessment,
+            prior_snapshot_id=prior_snapshot.portfolio_snapshot_id,
+            sequence=self._sequence,
+            producer_version=self.producer_version,
+        )
+        self._persist(snapshot, ledger_entry)
+        self._latest_snapshot_id = snapshot.portfolio_snapshot_id
+        self._sequence += 1
+        self._applied_assessment_ids.add(assessment.assessment_id)
+        return snapshot
+
+    def apply_corporate_action(self, prior_snapshot: PortfolioSnapshot, corporate_action: CorporateActionEvent) -> PortfolioSnapshot:
+        self._ensure_latest_snapshot(prior_snapshot)
+        if corporate_action.corporate_action_id in self._applied_corporate_action_ids:
+            raise DuplicateCorporateActionError(action_id=corporate_action.corporate_action_id)
+        if corporate_action.action_type not in {
+            CorporateActionType.STOCK_SPLIT.value,
+            CorporateActionType.CASH_DIVIDEND.value,
+        }:
+            raise UnsupportedCorporateActionError(action_type=corporate_action.action_type)
+        if self.price_adjustment_convention != "unadjusted":
+            raise IncompatiblePriceAdjustmentError(price_adjustment=self.price_adjustment_convention)
+        if corporate_action.action_type == CorporateActionType.STOCK_SPLIT.value:
+            return self._apply_stock_split(prior_snapshot, corporate_action)
+        raise InvalidCorporateActionError(f"unsupported corporate action type: {corporate_action.action_type}")
+
+    def _apply_stock_split(self, prior_snapshot: PortfolioSnapshot, corporate_action: CorporateActionEvent) -> PortfolioSnapshot:
+        split_ratio = corporate_action.split_ratio
+        if split_ratio is None:
+            raise InvalidCorporateActionError("stock_split requires split_ratio")
+        numerator, denominator = split_ratio
+        if denominator <= 0:
+            raise InvalidCorporateActionError("split_ratio denominator must be positive")
+        new_positions = []
+        for position in prior_snapshot.positions:
+            if position.quantity % denominator != 0:
+                raise InvalidCorporateActionError("fractional share splits are not supported")
+            new_quantity = position.quantity * numerator // denominator
+            new_average_cost = round(position.average_cost * denominator / numerator, 10) if numerator else 0.0
+            new_cost_basis = round(new_quantity * new_average_cost, 10)
+            new_positions.append(
+                PositionState(
+                    symbol=position.symbol,
+                    quantity=new_quantity,
+                    average_cost=new_average_cost,
+                    cost_basis=new_cost_basis,
+                    realized_pnl=position.realized_pnl,
+                )
+            )
+        positions = tuple(new_positions)
+        total_cost_basis = round(sum(position.cost_basis for position in positions), 10)
+        snapshot = PortfolioSnapshot(
+            portfolio_snapshot_id="0" * 64,
+            replay_specification_id=prior_snapshot.replay_specification_id,
+            replay_run_id=prior_snapshot.replay_run_id,
+            simulated_at=corporate_action.effective_at or prior_snapshot.simulated_at,
+            base_currency=prior_snapshot.base_currency,
+            cash=prior_snapshot.cash,
+            positions=positions,
+            total_cost_basis=total_cost_basis,
+            realized_pnl=prior_snapshot.realized_pnl,
+            unrealized_pnl=prior_snapshot.unrealized_pnl,
+            market_value=prior_snapshot.market_value,
+            prior_snapshot_id=prior_snapshot.portfolio_snapshot_id,
+            applied_fill_ids=prior_snapshot.applied_fill_ids,
+            accounting_methodology_id=self.methodology.methodology_id,
+            producer_version=self.producer_version,
+        )
+        snapshot_id = snapshot._canonical_snapshot_id()
+        snapshot = PortfolioSnapshot.model_validate({**snapshot.model_dump(mode="json"), "portfolio_snapshot_id": snapshot_id})
+        ledger_entry = PortfolioAdjustmentLedgerEntry.create_corporate_action_split(
+            snapshot=snapshot,
+            corporate_action=corporate_action,
+            prior_snapshot_id=prior_snapshot.portfolio_snapshot_id,
+            sequence=self._sequence,
+            producer_version=self.producer_version,
+        )
+        self._persist(snapshot, ledger_entry)
+        self._latest_snapshot_id = snapshot.portfolio_snapshot_id
+        self._sequence += 1
+        self._applied_corporate_action_ids.add(corporate_action.corporate_action_id)
+        return snapshot
+
+    def apply_dividend_payment(self, prior_snapshot: PortfolioSnapshot, entitlement: DividendEntitlement) -> PortfolioSnapshot:
+        self._ensure_latest_snapshot(prior_snapshot)
+        if entitlement.entitlement_id in self._applied_entitlement_ids:
+            raise DuplicateCostApplicationError(assessment_id=entitlement.entitlement_id)
+        cash = round(prior_snapshot.cash + entitlement.gross_cash_amount, 10)
+        snapshot = PortfolioSnapshot(
+            portfolio_snapshot_id="0" * 64,
+            replay_specification_id=prior_snapshot.replay_specification_id,
+            replay_run_id=prior_snapshot.replay_run_id,
+            simulated_at=entitlement.payment_at,
+            base_currency=prior_snapshot.base_currency,
+            cash=cash,
+            positions=prior_snapshot.positions,
+            total_cost_basis=prior_snapshot.total_cost_basis,
+            realized_pnl=prior_snapshot.realized_pnl,
+            unrealized_pnl=prior_snapshot.unrealized_pnl,
+            market_value=prior_snapshot.market_value,
+            prior_snapshot_id=prior_snapshot.portfolio_snapshot_id,
+            applied_fill_ids=prior_snapshot.applied_fill_ids,
+            accounting_methodology_id=self.methodology.methodology_id,
+            producer_version=self.producer_version,
+        )
+        snapshot_id = snapshot._canonical_snapshot_id()
+        snapshot = PortfolioSnapshot.model_validate({**snapshot.model_dump(mode="json"), "portfolio_snapshot_id": snapshot_id})
+        ledger_entry = PortfolioAdjustmentLedgerEntry.create_dividend_payment(
+            snapshot=snapshot,
+            entitlement=entitlement,
+            prior_snapshot_id=prior_snapshot.portfolio_snapshot_id,
+            sequence=self._sequence,
+            producer_version=self.producer_version,
+        )
+        self._persist(snapshot, ledger_entry)
+        self._latest_snapshot_id = snapshot.portfolio_snapshot_id
+        self._sequence += 1
+        self._applied_entitlement_ids.add(entitlement.entitlement_id)
+        return snapshot
+
+    def _ledger_provenance(self, ledger_entry: LedgerEntry, snapshot_artifact_id: str) -> tuple[ProvenanceReference, ...]:
         return (
             ProvenanceReference(
                 kind=ProvenanceReferenceKind.ARTIFACT,

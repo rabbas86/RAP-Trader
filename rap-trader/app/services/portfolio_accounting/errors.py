@@ -52,16 +52,70 @@ class InvalidMethodologyError(PortfolioLedgerError):
 
 
 class PortfolioAccountingValidationError(PortfolioLedgerError):
+    def __init__(self, message: str, *, code: str = "VALIDATION_ERROR") -> None:
+        super().__init__(code=code, message=message)
+
+
+class InvalidCostInputError(PortfolioAccountingValidationError):
     def __init__(self, message: str) -> None:
-        super().__init__(code="VALIDATION_ERROR", message=message)
+        super().__init__(message=message)
+
+
+class InvalidCorporateActionError(PortfolioAccountingValidationError):
+    def __init__(self, message: str) -> None:
+        super().__init__(message=message)
+
+
+class FutureCorporateActionError(PortfolioAccountingValidationError):
+    def __init__(self, action_id: str, simulated_at: str) -> None:
+        super().__init__(
+            code="FUTURE_CORPORATE_ACTION",
+            message=f"corporate action {action_id} is not applicable at simulated time {simulated_at}",
+        )
+        self.action_id = action_id
+        self.simulated_at = simulated_at
+
+
+class DuplicateCostApplicationError(PortfolioAccountingValidationError):
+    def __init__(self, assessment_id: str) -> None:
+        super().__init__(code="DUPLICATE_COST_APPLICATION", message="cost assessment has already been applied")
+        self.assessment_id = assessment_id
+
+
+class DuplicateCorporateActionError(PortfolioAccountingValidationError):
+    def __init__(self, action_id: str) -> None:
+        super().__init__(code="DUPLICATE_CORPORATE_ACTION", message="corporate action has already been applied")
+        self.action_id = action_id
+
+
+class UnsupportedCorporateActionError(PortfolioAccountingValidationError):
+    def __init__(self, action_type: str) -> None:
+        super().__init__(code="UNSUPPORTED_CORPORATE_ACTION", message=f"corporate action type {action_type} is not supported")
+        self.action_type = action_type
+
+
+class IncompatiblePriceAdjustmentError(PortfolioAccountingValidationError):
+    def __init__(self, price_adjustment: str) -> None:
+        super().__init__(
+            code="INCOMPATIBLE_PRICE_ADJUSTMENT",
+            message=f"incompatible price adjustment convention: {price_adjustment}",
+        )
+        self.price_adjustment = price_adjustment
 
 
 __all__ = [
+    "DuplicateCorporateActionError",
+    "DuplicateCostApplicationError",
+    "FutureCorporateActionError",
+    "IncompatiblePriceAdjustmentError",
     "InsufficientCashError",
+    "InvalidCorporateActionError",
+    "InvalidCostInputError",
     "InvalidFillError",
     "InvalidMethodologyError",
     "PortfolioAccountingError",
     "PortfolioAccountingValidationError",
     "PortfolioLedgerError",
     "UnauthorizedShortError",
+    "UnsupportedCorporateActionError",
 ]

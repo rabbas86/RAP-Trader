@@ -49,6 +49,10 @@ class ArtifactType(StrEnum):
     PORTFOLIO_ACCOUNTING_METHODOLOGY = "portfolio_accounting_methodology"
     PORTFOLIO_LEDGER_ENTRY = "portfolio_ledger_entry"
     PORTFOLIO_SNAPSHOT = "portfolio_snapshot"
+    TRANSACTION_COST_METHODOLOGY = "transaction_cost_methodology"
+    EXECUTION_COST_ASSESSMENT = "execution_cost_assessment"
+    CORPORATE_ACTION = "corporate_action"
+    DIVIDEND_ENTITLEMENT = "dividend_entitlement"
 
 
 class ProvenanceReferenceKind(StrEnum):
