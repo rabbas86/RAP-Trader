@@ -379,6 +379,12 @@ class PortfolioSnapshot(_PortfolioFrozenModel):
                 return position
         return None
 
+    @property
+    def equity(self) -> float | None:
+        if self.unrealized_pnl is None or self.market_value is None:
+            return None
+        return round(self.cash + self.market_value, 10)
+
     @classmethod
     def create_initial(cls, specification: HistoricalReplaySpecification, *, producer_version: str = "phase16e-1.0") -> PortfolioSnapshot:
         provisional = cls.model_construct(

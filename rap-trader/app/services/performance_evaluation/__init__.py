@@ -1,0 +1,55 @@
+"""Phase 16G performance evaluation service package."""
+
+from app.services.performance_evaluation.errors import (
+    BenchmarkAlignmentError,
+    InsufficientSampleError,
+    InvalidMethodologyError,
+    LookaheadContaminationError,
+    MismatchedReplayLinkageError,
+    MissingBenchmarkDataError,
+    PerformanceEvaluationError,
+    ValuationCoverageError,
+)
+from app.services.performance_evaluation.evaluator import PerformanceEvaluationService
+from app.services.performance_evaluation.models import (
+    BenchmarkComparison,
+    BenchmarkReturnObservation,
+    BenchmarkReturnSeries,
+    BenchmarkSpecification,
+    CorporateActionAggregate,
+    DrawdownPeriod,
+    HistoricalPerformanceEvaluation,
+    MetricValue,
+    PerformanceEvaluationMethodology,
+    PerformanceMetrics,
+    PortfolioReturnObservation,
+    PortfolioReturnSeries,
+    RiskMetrics,
+    TransactionCostAggregate,
+)
+
+__all__ = [
+    "BenchmarkAlignmentError",
+    "BenchmarkComparison",
+    "BenchmarkReturnObservation",
+    "BenchmarkReturnSeries",
+    "BenchmarkSpecification",
+    "CorporateActionAggregate",
+    "DrawdownPeriod",
+    "HistoricalPerformanceEvaluation",
+    "InsufficientSampleError",
+    "InvalidMethodologyError",
+    "LookaheadContaminationError",
+    "MetricValue",
+    "MismatchedReplayLinkageError",
+    "MissingBenchmarkDataError",
+    "PerformanceEvaluationError",
+    "PerformanceEvaluationMethodology",
+    "PerformanceEvaluationService",
+    "PerformanceMetrics",
+    "PortfolioReturnObservation",
+    "PortfolioReturnSeries",
+    "RiskMetrics",
+    "TransactionCostAggregate",
+    "ValuationCoverageError",
+]

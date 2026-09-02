@@ -53,6 +53,9 @@ class ArtifactType(StrEnum):
     EXECUTION_COST_ASSESSMENT = "execution_cost_assessment"
     CORPORATE_ACTION = "corporate_action"
     DIVIDEND_ENTITLEMENT = "dividend_entitlement"
+    PERFORMANCE_EVALUATION_METHODOLOGY = "performance_evaluation_methodology"
+    HISTORICAL_PERFORMANCE_EVALUATION = "historical_performance_evaluation"
+    BENCHMARK_COMPARISON = "benchmark_comparison"
 
 
 class ProvenanceReferenceKind(StrEnum):
