@@ -60,6 +60,10 @@ class ArtifactType(StrEnum):
     WALK_FORWARD_EVALUATION = "walk_forward_evaluation"
     WALK_FORWARD_FOLD = "walk_forward_fold"
     HISTORICAL_BACKTEST_REPORT = "historical_backtest_report"
+    FORWARD_DATA_SOURCE = "forward_data_source"
+    FORWARD_DATA_OBSERVATION = "forward_data_observation"
+    FORWARD_VALIDATION_SESSION = "forward_validation_session"
+    FORWARD_INGESTION_RESULT = "forward_ingestion_result"
 
 
 class ProvenanceReferenceKind(StrEnum):

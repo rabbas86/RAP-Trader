@@ -82,6 +82,17 @@ from app.domain.models.features import (
     FeatureValue,
     FeatureVector,
 )
+from app.domain.models.forward_data import (
+    FORWARD_SCHEMA_VERSION,
+    ForwardDataError,
+    ForwardDataErrorCode,
+    ForwardDataObservation,
+    ForwardDataProvider,
+    ForwardDataSession,
+    ForwardDataSource,
+    ForwardIngestionResult,
+    ForwardMarketObservation,
+)
 from app.domain.models.fundamental import (
     BalanceSheet,
     CashFlowStatement,
@@ -149,6 +160,7 @@ from app.domain.models.technical import MarketStructureState, SwingPoint, Techni
 __all__ = [
     "ARTIFACT_SCHEMA_VERSION",
     "BACKTEST_SCHEMA_VERSION",
+    "FORWARD_SCHEMA_VERSION",
     "GENESIS_EVENT_HASH",
     "RESEARCH_RUN_SCHEMA_VERSION",
     "SMA_BASELINE_MODEL_ID",
@@ -212,6 +224,14 @@ __all__ = [
     "FinancialStatementPeriod",
     "ForecastBar",
     "ForecastMetrics",
+    "ForwardDataError",
+    "ForwardDataErrorCode",
+    "ForwardDataObservation",
+    "ForwardDataProvider",
+    "ForwardDataSession",
+    "ForwardDataSource",
+    "ForwardIngestionResult",
+    "ForwardMarketObservation",
     "Frequency",
     "FundamentalMetric",
     "FundamentalSnapshot",
